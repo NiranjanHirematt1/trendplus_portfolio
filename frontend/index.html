@@ -586,14 +586,7 @@ html.light .scard{border-color:var(--border)}
 'use strict';
 
 // ── CONFIG ─────────────────────────────────────────────────────
-// Auto-detects local dev vs. production so the same file works after deploy,
-// instead of a hardcoded localhost URL that only works on your machine.
-// If your Render backend URL is different from render.yaml's default,
-// update PROD_API below (Render → your service → the URL at the top of the page).
-const PROD_API = 'http://localhost:8000'; // Change this to your Render backend URL if different
-const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'http://localhost:8000'
-  : PROD_API;
+const API = 'http://localhost:8000';
 
 // ── STATE ──────────────────────────────────────────────────────
 let VIEW     = 'screener';
@@ -1451,6 +1444,9 @@ if (localStorage.getItem('tp_theme') === 'light') document.documentElement.class
   await updateAuthUI();
   loadSectorList();
   await loadScreener();
+  // Deep link from Portfolio (Capital Rotation / Opportunity Queue) straight to a stock's detail panel
+  const deepLinkSymbol = new URLSearchParams(location.search).get('symbol');
+  if (deepLinkSymbol) openDP(deepLinkSymbol.toUpperCase());
 })();
 </script>
 </body>

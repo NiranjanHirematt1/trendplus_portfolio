@@ -71,19 +71,73 @@ def _locate_header_row(raw: "pd.DataFrame") -> int:
 
 def _read_table(filename: str, content: bytes) -> "pd.DataFrame":
     lower = filename.lower()
+
+    # ---------------- CSV ----------------
     if lower.endswith(".csv"):
         raw = pd.read_csv(BytesIO(content), header=None)
-    elif lower.endswith((".xlsx", ".xls")):
-        raw = pd.read_excel(BytesIO(content), header=None)
-    else:
-        raise ValueError("Unsupported file type. Upload CSV, XLS, or XLSX.")
 
-    header_row = _locate_header_row(raw)
-    header_values = raw.iloc[header_row].tolist()
-    columns = [str(v).strip() if pd.notna(v) and str(v).strip() else f"col_{i}" for i, v in enumerate(header_values)]
-    df = raw.iloc[header_row + 1:].copy()
-    df.columns = columns
-    return df.reset_index(drop=True)
+        header_row = _locate_header_row(raw)
+        header = raw.iloc[header_row].tolist()
+
+        columns = [
+            str(v).strip() if pd.notna(v) and str(v).strip()
+            else f"col_{i}"
+            for i, v in enumerate(header)
+        ]
+
+        df = raw.iloc[header_row + 1:].copy()
+        df.columns = columns
+        return df.reset_index(drop=True)
+
+    # ---------------- Excel ----------------
+    elif lower.endswith((".xlsx", ".xls")):
+
+        xls = pd.ExcelFile(BytesIO(content))
+
+        for sheet in xls.sheet_names:
+
+            try:
+                raw = pd.read_excel(
+                    xls,
+                    sheet_name=sheet,
+                    header=None,
+                    dtype=str
+                )
+            except Exception:
+                continue
+
+            if raw.empty:
+                continue
+
+            header_row = _locate_header_row(raw)
+
+            header = raw.iloc[header_row].tolist()
+
+            columns = [
+                str(v).strip() if pd.notna(v) and str(v).strip()
+                else f"col_{i}"
+                for i, v in enumerate(header)
+            ]
+
+            symbol_col = _find_column(columns, SYMBOL_KEYS)
+            qty_col = _find_column(columns, QTY_KEYS)
+            price_col = _find_column(columns, PRICE_KEYS)
+
+            if symbol_col and qty_col and price_col:
+
+                df = raw.iloc[header_row + 1:].copy()
+                df.columns = columns
+
+                return df.reset_index(drop=True)
+
+        raise ValueError(
+            "Could not find a holdings table in any worksheet."
+        )
+
+    else:
+        raise ValueError(
+            "Unsupported file type. Upload CSV, XLS or XLSX."
+        )
 
 
 def _decimal(value: Any, field: str, row_num: int) -> Decimal:

@@ -58,8 +58,6 @@ a{color:inherit}
 .btn-primary:hover{background:var(--blue)}
 .btn-ghost{background:transparent;border:1px solid var(--border2)!important;color:var(--t1)}
 .btn-ghost:hover{color:var(--t0);border-color:var(--t2)!important}
-.btn-ai{background:linear-gradient(135deg,#7c3aed,#3b82f6);color:#fff}
-.btn-ai:hover{filter:brightness(1.1)}
 .btn-block{width:100%}
 .sub-link{display:block;text-align:center;margin-top:10px;font-size:11px;color:var(--t3);text-decoration:none}
 .sub-link:hover{color:var(--t1)}
@@ -108,16 +106,6 @@ tr:last-child td{border-bottom:none}
 .status-active{color:var(--green);background:var(--green-bg)}
 .status-sold{color:var(--t2);background:var(--bg2)}
 .status-missing{color:var(--amber);background:var(--amber-bg)}
-.rec{font-weight:800;font-size:10.5px;display:inline-flex;border-radius:4px;padding:2px 7px}
-.rec-add,.action-ADD-MORE{color:var(--green);background:var(--green-bg)}
-.rec-hold,.action-HOLD{color:var(--blue);background:var(--blue-bg)}
-.rec-trim,.action-TRIM{color:var(--amber);background:var(--amber-bg)}
-.rec-exit,.action-EXIT-ALL,.action-EXIT{color:var(--red);background:var(--red-bg)}
-.rec-review,.action-REVIEW{color:var(--purple);background:var(--purple-bg)}
-.rec-reason{display:block;font-size:9.5px;color:var(--t3);font-weight:500;text-transform:none;letter-spacing:0;margin-top:2px;white-space:normal;max-width:220px}
-.spark-cell{width:96px}
-.spark-wrap{display:flex;align-items:center;gap:6px}
-.spark-chg{font-size:10.5px;font-weight:700}
 .table-actions{display:flex;gap:6px;flex-wrap:wrap}
 .link-btn{color:var(--blue);font-size:11.5px;font-weight:700}
 .link-btn:hover{text-decoration:underline}
@@ -126,9 +114,50 @@ tr:last-child td{border-bottom:none}
 .icon-btn{color:var(--t2);font-size:14px;cursor:pointer}
 .icon-btn:hover{color:var(--blue)}
 
-.ai-note{padding:14px 16px;font-size:12.5px;color:var(--t2);border-bottom:1px solid var(--border);background:var(--bg2)}
-.ai-badge-wrap{display:flex;flex-direction:column;gap:2px}
-.ai-conf{font-size:9.5px;color:var(--t3)}
+/* ── Position Intelligence visual system ─────────────────────── */
+.quality-badge{font-weight:800;font-size:10px;display:inline-flex;border-radius:4px;padding:2px 7px;white-space:nowrap}
+.q-elite{color:#10b981;background:rgba(16,185,129,.16)}
+.q-strong{color:#34d399;background:rgba(52,211,153,.12)}
+.q-healthy{color:var(--blue);background:var(--blue-bg)}
+.q-watch{color:var(--amber);background:var(--amber-bg)}
+.q-weak{color:#fb923c;background:rgba(251,146,60,.12)}
+.q-highrisk{color:var(--red);background:var(--red-bg)}
+
+.risk-badge{font-weight:700;font-size:10px;display:inline-flex;border-radius:4px;padding:2px 7px;white-space:nowrap;border:1px solid var(--border2)}
+.risk-Low{color:var(--green)}
+.risk-Moderate{color:var(--blue)}
+.risk-Elevated{color:var(--amber)}
+.risk-High{color:var(--red)}
+
+.score-cell{display:flex;align-items:center;gap:7px;min-width:100px}
+.score-track{flex:1;height:6px;background:var(--bg2);border-radius:999px;overflow:hidden;min-width:52px}
+.score-fill{height:100%;border-radius:999px}
+.score-num{font-family:var(--font-mono);font-weight:700;font-size:12px;min-width:22px;text-align:right}
+.conf-num{font-family:var(--font-mono);color:var(--t2);font-size:11.5px}
+.trend-tag{font-size:10.5px;color:var(--t1);white-space:nowrap}
+.sector-tag{font-size:10.5px;color:var(--t3);display:block;margin-top:1px}
+
+.brief-panel{background:linear-gradient(160deg,var(--bg1),var(--bg2));border:1px solid var(--border);border-radius:var(--r2);padding:18px 20px;margin-bottom:16px}
+.brief-greeting{font-size:15px;font-weight:700;margin-bottom:8px}
+.brief-highlights{list-style:none;display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.brief-highlights li{font-size:12.5px;color:var(--t1);padding-left:16px;position:relative;line-height:1.5}
+.brief-highlights li::before{content:"•";position:absolute;left:0;color:var(--blue)}
+.brief-summary{display:flex;gap:18px;margin-top:12px;flex-wrap:wrap}
+.brief-stat{font-size:11.5px;color:var(--t2)}
+.brief-stat b{font-family:var(--font-mono);font-size:14px;display:block;color:var(--t0)}
+
+.rot-card{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border)}
+.rot-card:last-child{border-bottom:none}
+.rot-side{display:flex;flex-direction:column;gap:4px}
+.rot-sym{font-family:var(--font-mono);font-weight:800;font-size:14px}
+.rot-arrow{color:var(--t3);font-size:18px}
+.rot-meta{font-size:11px;color:var(--t2)}
+.rot-reasons{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.rot-tag{font-size:10px;font-weight:700;color:var(--blue);background:var(--blue-bg);border-radius:4px;padding:2px 6px}
+.rot-stats{display:flex;gap:14px;padding:0 16px 14px;font-size:11px;color:var(--t2)}
+.rot-stats b{color:var(--t0);font-family:var(--font-mono)}
+
+.opp-reason{color:var(--t2);font-size:11.5px}
 
 .mini-bars{display:flex;flex-direction:column;gap:8px;padding:16px}
 .mini-bar{display:grid;grid-template-columns:150px 1fr 56px;gap:10px;align-items:center;font-size:12px;color:var(--t1)}
@@ -138,19 +167,6 @@ tr:last-child td{border-bottom:none}
 @media(max-width:800px){.analytics-grid{grid-template-columns:1fr}}
 .analytics-col{padding:4px 0}
 .analytics-col+.analytics-col{border-left:1px solid var(--border)}
-
-/* Top Gainers / Top Losers */
-.gl-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
-@media(max-width:800px){.gl-grid{grid-template-columns:1fr}}
-.gl-col+.gl-col{border-left:1px solid var(--border)}
-@media(max-width:800px){.gl-col+.gl-col{border-left:none;border-top:1px solid var(--border)}}
-.gl-head{display:flex;align-items:center;gap:6px;padding:12px 16px 6px;font-weight:700;font-size:12.5px}
-.gl-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 16px;font-size:12.5px}
-.gl-row+.gl-row{border-top:1px solid var(--border)}
-.gl-sym{font-family:var(--font-mono);font-weight:700;cursor:pointer;color:var(--t0)}
-.gl-sym:hover{color:var(--blue)}
-.gl-sub{color:var(--t3);font-size:10.5px}
-.gl-empty{padding:14px 16px;color:var(--t2);font-size:12px}
 @media(max-width:800px){.analytics-col+.analytics-col{border-left:none;border-top:1px solid var(--border)}}
 
 .empty-row td{text-align:center;color:var(--t2);padding:22px}
@@ -227,16 +243,22 @@ tr:last-child td{border-bottom:none}
     </div>
   </section>
 
+  <div class="brief-panel" id="morningBrief"></div>
+
   <div class="cards" id="dashboardCards"></div>
 
   <section class="panel">
     <div class="panel-head">
-      <div><div class="panel-title">🤖 AI Portfolio Insights</div><div class="panel-sub">Gemini reviews each active holding's momentum, RSI, trend strength and P/L, and calls one of four actions.</div></div>
-      <div class="panel-actions">
-        <button class="btn btn-ai" id="aiBtn" onclick="runAIAnalysis()">✨ Analyze with AI</button>
-      </div>
+      <div><div class="panel-title">Capital Rotation Opportunities</div><div class="panel-sub">Screener stocks with materially stronger momentum, RS or trend than your weaker holdings. Observational only — not a buy/sell instruction.</div></div>
     </div>
-    <div id="aiResults"></div>
+    <div id="rotationPanel"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div><div class="panel-title">Top Opportunities</div><div class="panel-sub">Highest-ranked screener stocks not currently in your portfolio. Click a symbol to open its full detail panel.</div></div>
+    </div>
+    <div class="pf-table-wrap" id="opportunityQueue"></div>
   </section>
 
   <section class="panel">
@@ -266,12 +288,7 @@ tr:last-child td{border-bottom:none}
   </section>
 
   <section class="panel">
-    <div class="panel-head"><div><div class="panel-title">Top Gainers &amp; Losers</div><div class="panel-sub">Your best and worst performing active holdings right now, by unrealized gain %.</div></div></div>
-    <div class="gl-grid" id="gainersLosers"></div>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head"><div><div class="panel-title">Holdings</div><div class="panel-sub">The mini chart shows the last ~30 trading days. Click a symbol for the full trendline since purchase.</div></div></div>
+    <div class="panel-head"><div><div class="panel-title">Holdings</div><div class="panel-sub">Click a symbol's trend icon to see its price line from purchase date to today.</div></div></div>
     <div class="pf-table-wrap" id="holdingsTable"></div>
   </section>
 
@@ -281,21 +298,26 @@ tr:last-child td{border-bottom:none}
   </section>
 
   <section class="panel">
-    <div class="panel-head"><div><div class="panel-title">Portfolio Analytics</div><div class="panel-sub">Sector allocation and stagnant "dead money" positions. Tax is handled by your broker's contract notes, not shown here.</div></div></div>
+    <div class="panel-head"><div><div class="panel-title">Portfolio Analytics</div><div class="panel-sub">Sector allocation, dead-money stocks and estimated capital-gains tax.</div></div></div>
     <div id="portfolioAnalytics"></div>
   </section>
 
 </div>
 
-<!-- Trendline modal -->
+<!-- Position detail modal -->
 <div class="modal-overlay hidden" id="trendModal">
-  <div class="modal-card">
+  <div class="modal-card" style="max-width:760px">
     <div class="modal-head">
-      <div class="panel-title" id="trendModalTitle">Trendline</div>
+      <div>
+        <div class="panel-title" id="trendModalTitle">Position Intelligence</div>
+        <div class="panel-sub" id="trendModalSub" style="margin-top:2px"></div>
+      </div>
       <span class="modal-close" onclick="closeTrendModal()">✕</span>
     </div>
-    <div class="modal-body">
-      <canvas id="trendCanvas" height="220"></canvas>
+    <div class="modal-body" style="max-height:78vh;overflow:auto">
+      <div id="detailIntel"></div>
+      <div class="panel-title" style="font-size:12.5px;margin:16px 0 8px">Price vs Purchase</div>
+      <canvas id="trendCanvas" height="200"></canvas>
       <div class="pf-note" id="trendModalNote" style="padding:12px 0 0"></div>
     </div>
   </div>
@@ -305,17 +327,13 @@ tr:last-child td{border-bottom:none}
 
 <script>
 'use strict';
-// Auto-detects local dev vs. production. Update PROD_API if your Render URL
-// differs from render.yaml's default service name.
-const PROD_API = 'http://localhost:8000';
-const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
-  ? 'http://localhost:8000'
-  : PROD_API;
+const API = 'http://localhost:8000';
 let AUTH_TOKEN = localStorage.getItem('tp_token') || '';
 let CURRENT_USER = null;
 let HOLDINGS = [];
-let AI_RESULTS = {};
+let LAST_SUMMARY = null;
 let trendChart = null;
+const SCREENER_URL = './index.html';
 
 const inr  = v => (v == null || isNaN(v)) ? '—' : '₹' + Number(v).toLocaleString('en-IN',{maximumFractionDigits:2});
 const fNum = v => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-IN');
@@ -398,15 +416,15 @@ async function loadAll() {
     showScreen();
     const [summary, holdings] = await Promise.all([apiFetch('/api/portfolio/summary'), apiFetch('/api/portfolio/holdings')]);
     HOLDINGS = holdings.data || [];
-    AI_RESULTS = {};
+    LAST_SUMMARY = summary;
+    renderMorningBrief(summary.morning_brief);
     renderCards(summary);
-    renderGainersLosers(summary);
+    renderRotation(summary.capital_rotation || []);
+    renderOpportunities(summary.opportunity_queue || []);
     renderHoldings(HOLDINGS);
     renderHistory(HOLDINGS.filter(h => h.status === 'SOLD'));
     renderAnalytics(summary);
     renderMissingDates(HOLDINGS.filter(h => h.requires_confirmation));
-    renderAIPlaceholder();
-    loadSparklines(); // fire-and-forget: fills in mini-charts once loaded, doesn't block the rest of the page
   } catch (e) {
     toast(cleanErr(e.message), 5000);
     if (e.message.startsWith('401')) { setAuth(''); CURRENT_USER = null; showScreen(); }
@@ -414,148 +432,110 @@ async function loadAll() {
 }
 
 function renderCards(summary) {
-  const c = summary.cards || {};
-  const risk = summary.risk || {};
-  const needsReview = (summary.needs_review || []).length;
+  const h = summary.portfolio_health || {};
   const items = [
-    ['Total Investment', inr(c.total_investment), ''],
-    ['Current Value', inr(c.current_value), ''],
-    ['Profit / Loss', `<span class="${pCls(c.profit_loss)}">${inr(c.profit_loss)}</span>`, ''],
-    ['Simple Return', `<span class="${pCls(c.return_pct)}">${fPct(c.return_pct)}</span>`, ''],
-    ['XIRR (Annualized)', c.xirr_pct != null ? `<span class="${pCls(c.xirr_pct)}">${fPct(c.xirr_pct)}</span>` : '—', 'Time-weighted for when each buy happened'],
-    ['Diversification', risk.diversification_score != null ? risk.diversification_score : '—',
-      risk.flag ? `<span class="risk-pill risk-${risk.flag}">${risk.flag}</span> top position ${f1(risk.top_position_pct)}%` : ''],
-    ['Holdings', fNum(c.number_of_holdings), `${fNum(c.winning_holdings)} up · ${fNum(c.losing_holdings)} down`],
-    ['Needs Review', fNum(needsReview), needsReview ? 'Missing price data — see Holdings table' : 'All holdings have current price data'],
+    ['Portfolio Health', h.portfolio_health != null ? h.portfolio_health : '—', 'Composite of momentum, position quality, risk & diversification'],
+    ['Momentum Health', h.momentum_health != null ? f1(h.momentum_health) : '—', 'Weighted average momentum score'],
+    ['Risk Score', h.risk_score != null ? h.risk_score : '—', 'Higher = more concentration / drawdown exposure'],
+    ['Diversification', h.diversification_score != null ? f1(h.diversification_score) : '—', ''],
+    ['Capital Efficiency', h.capital_efficiency != null ? h.capital_efficiency + '%' : '—', 'Capital sitting in Healthy-or-better positions'],
+    ['Alpha vs Market', h.alpha_vs_benchmark != null ? `<span class="${pCls(h.alpha_vs_benchmark)}">${fPct(h.alpha_vs_benchmark)}</span>` : '—', '12-day return vs market average'],
+    ['Win Rate', h.win_rate != null ? f1(h.win_rate) + '%' : '—', ''],
+    ['Avg Position Score', h.average_position_score != null ? f1(h.average_position_score) : '—', ''],
   ];
   document.getElementById('dashboardCards').innerHTML = items.map(([l, v, s]) =>
     `<div class="card"><div class="card-label">${l}</div><div class="card-value">${v}</div>${s ? `<div class="card-sub">${s}</div>` : ''}</div>`).join('');
 }
 
-// ── TOP GAINERS / LOSERS ─────────────────────────────────────────
-function glRow(h) {
-  return `<div class="gl-row">
-    <span class="gl-sym" onclick="openTrendModal(${h.id})">${h.symbol}</span>
-    <div><div class="gl-sub">${inr(h.current_value)} · ${fNum(h.quantity)} sh</div></div>
-    <span class="${pCls(h.gain_pct)} spark-chg">${fPct(h.gain_pct)}</span>
-  </div>`;
-}
-function renderGainersLosers(s) {
-  const gainers = (s.top_gainers || []).filter(h => Number(h.gain_pct) > 0);
-  const losers = (s.top_losers || []).filter(h => Number(h.gain_pct) < 0);
-  document.getElementById('gainersLosers').innerHTML = `
-    <div class="gl-col">
-      <div class="gl-head">📈 Top Gainers</div>
-      ${gainers.length ? gainers.map(glRow).join('') : '<div class="gl-empty">No holdings currently in the green</div>'}
-    </div>
-    <div class="gl-col">
-      <div class="gl-head">📉 Top Losers</div>
-      ${losers.length ? losers.map(glRow).join('') : '<div class="gl-empty">No holdings currently in the red</div>'}
+// ── MORNING PORTFOLIO BRIEF ──────────────────────────────────────
+function renderMorningBrief(brief) {
+  const el = document.getElementById('morningBrief');
+  if (!brief) { el.innerHTML = `<div class="brief-greeting">Good Morning.</div><div class="panel-sub">Add holdings to see your Morning Portfolio Brief.</div>`; return; }
+  const s = brief.summary || {};
+  el.innerHTML = `
+    <div class="brief-greeting">${brief.greeting || 'Good Morning.'}</div>
+    <ul class="brief-highlights">${(brief.highlights || []).map(x => `<li>${x}</li>`).join('') || '<li>No notable changes today.</li>'}</ul>
+    <div class="brief-summary">
+      <div class="brief-stat"><b class="pos">${s.strong_positions ?? 0}</b>Strong Positions</div>
+      <div class="brief-stat"><b style="color:var(--amber)">${s.watch_closely ?? 0}</b>Watch Closely</div>
+      <div class="brief-stat"><b class="neg">${s.high_risk ?? 0}</b>High Risk</div>
     </div>`;
 }
 
-// ── AI ANALYSIS ────────────────────────────────────────────────
-function renderAIPlaceholder() {
-  const active = HOLDINGS.filter(h => h.status === 'ACTIVE');
-  document.getElementById('aiResults').innerHTML = active.length
-    ? `<div class="ai-note">Click "Analyze with AI" to get a Hold / Trim / Add More / Exit All verdict for each of your ${active.length} active holdings.</div>`
-    : `<div class="ai-note">No active holdings to analyze yet.</div>`;
+// ── CAPITAL ROTATION ─────────────────────────────────────────────
+function renderRotation(rotation) {
+  const el = document.getElementById('rotationPanel');
+  if (!rotation.length) { el.innerHTML = `<div class="ai-note">No material rotation opportunities detected — your weaker positions aren't far behind current screener leaders.</div>`; return; }
+  el.innerHTML = rotation.map(r => `
+    <div class="rot-card">
+      <div class="rot-side">
+        <span class="rot-sym">${r.from.symbol}</span>
+        <span class="rot-meta">Position Score ${r.from.position_score} · ${r.from.position_quality}</span>
+      </div>
+      <span class="rot-arrow">→</span>
+      <div class="rot-side">
+        <span class="rot-sym sym-link" onclick="openScreenerSymbol('${r.to.symbol}')">${r.to.symbol}</span>
+        <span class="rot-meta">Momentum ${f1(r.to.momentum_score)} · RS ${f1(r.to.rs_score)} · ${r.to.sector || ''}</span>
+        <div class="rot-reasons">${r.reasons.map(x => `<span class="rot-tag">${x}</span>`).join('')}</div>
+      </div>
+    </div>`).join('') +
+    '';
+  el.innerHTML += rotation.map(r => `<div class="rot-stats"><span>Opportunity Score <b>${r.opportunity_score}</b></span><span>Potential Improvement <b>+${r.potential_improvement}</b></span><span>Confidence <b>${r.confidence}%</b></span></div>`).join('');
 }
-async function runAIAnalysis() {
-  const btn = document.getElementById('aiBtn');
-  const orig = btn.textContent;
-  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Analyzing…';
-  document.getElementById('aiResults').innerHTML = `<div class="ai-note"><span class="spin"></span> Gemini is reviewing your holdings…</div>`;
-  try {
-    const d = await apiFetch('/api/portfolio/ai-analysis', { method: 'POST' });
-    AI_RESULTS = d.data || {};
-    if (!Object.keys(AI_RESULTS).length) {
-      document.getElementById('aiResults').innerHTML = `<div class="ai-note">No active holdings to analyze.</div>`;
-    } else {
-      const rows = Object.entries(AI_RESULTS).map(([id, r]) => {
-        const h = HOLDINGS.find(x => String(x.id) === String(id));
-        const cls = 'action-' + r.action.replace(/\s+/g, '-');
-        return `<tr>
-          <td><span class="sym-link" onclick="openTrendModal(${id})">${h ? h.symbol : id}</span></td>
-          <td><span class="rec ${cls}">${r.action}</span></td>
-          <td class="mono">${r.confidence}%</td>
-          <td>${r.reasoning || ''}</td>
-        </tr>`;
-      }).join('');
-      document.getElementById('aiResults').innerHTML =
-        `<div class="pf-table-wrap"><table><thead><tr><th>Symbol</th><th>AI Verdict</th><th>Confidence</th><th>Reasoning</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-    }
-    renderHoldings(HOLDINGS); // re-render to show AI badges in the holdings table too
-    toast('AI analysis complete');
-  } catch (e) {
-    document.getElementById('aiResults').innerHTML = `<div class="ai-note" style="color:var(--red)">${cleanErr(e.message)}</div>`;
-  } finally {
-    btn.disabled = false; btn.textContent = orig;
-  }
+
+// ── OPPORTUNITY QUEUE ────────────────────────────────────────────
+function renderOpportunities(rows) {
+  const el = document.getElementById('opportunityQueue');
+  if (!rows.length) { el.innerHTML = `<div class="ai-note">No standout screener opportunities right now.</div>`; return; }
+  const body = rows.map(r => `<tr>
+    <td class="mono">${r.rank}</td>
+    <td><span class="sym-link" onclick="openScreenerSymbol('${r.symbol}')">${r.symbol}</span><span class="sector-tag">${r.sector || ''}</span></td>
+    <td>${scoreBar(r.momentum_score)}</td>
+    <td class="mono">${f1(r.rs_score)}</td>
+    <td>${r.sector || '—'}</td>
+    <td class="mono">${r.confidence}%</td>
+    <td class="opp-reason">${r.reason}</td>
+  </tr>`).join('');
+  el.innerHTML = `<table><thead><tr><th>Rank</th><th>Symbol</th><th>Momentum</th><th>RS</th><th>Sector</th><th>Confidence</th><th>Reason</th></tr></thead><tbody>${body}</tbody></table>`;
 }
+function openScreenerSymbol(sym) { window.open(`${SCREENER_URL}?symbol=${encodeURIComponent(sym)}`, '_blank'); }
 
 // ── HOLDINGS / HISTORY / ANALYTICS ──────────────────────────────
-let SPARKLINES = {};
-async function loadSparklines() {
-  try {
-    const d = await apiFetch('/api/portfolio/holdings/sparklines');
-    SPARKLINES = d.data || {};
-    renderHoldings(HOLDINGS); // re-render once mini-charts are ready
-  } catch (e) { /* sparklines are a nice-to-have; fail silently */ }
+const QUALITY_CLASS = {'Elite Position':'q-elite','Strong Position':'q-strong','Healthy':'q-healthy','Watch Closely':'q-watch','Weak Position':'q-weak','High Risk':'q-highrisk'};
+const SCORE_COLOR = s => s >= 70 ? 'var(--green)' : s >= 40 ? 'var(--amber)' : 'var(--red)';
+function scoreBar(score) {
+  if (score == null) return '—';
+  const s = Number(score);
+  return `<div class="score-cell"><div class="score-track"><div class="score-fill" style="width:${Math.max(0,Math.min(100,s))}%;background:${SCORE_COLOR(s)}"></div></div><span class="score-num">${Math.round(s)}</span></div>`;
 }
-function sparkSvg(points, isUp) {
-  if (!points || points.length < 2) return '<span style="color:var(--t3)">—</span>';
-  const prices = points.map(p => Number(p.close_price));
-  const min = Math.min(...prices), max = Math.max(...prices);
-  const w = 80, h = 26, pad = 2;
-  const range = (max - min) || 1;
-  const step = (w - pad * 2) / (prices.length - 1);
-  const coords = prices.map((p, i) => `${(pad + i * step).toFixed(1)},${(h - pad - ((p - min) / range) * (h - pad * 2)).toFixed(1)}`);
-  const color = isUp ? '#10b981' : '#ef4444';
-  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${coords.join(' ')}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
-}
-function sparkCell(h) {
-  const pts = SPARKLINES[h.symbol];
-  if (!pts) return '<span style="color:var(--t3);font-size:11px">Loading…</span>';
-  if (pts.length < 2) return '<span style="color:var(--t3)">No data</span>';
-  const first = Number(pts[0].close_price), last = Number(pts[pts.length - 1].close_price);
-  const chg = first ? ((last - first) / first * 100) : 0;
-  return `<div class="spark-wrap">${sparkSvg(pts, chg >= 0)}<span class="${pCls(chg)} spark-chg">${fPct(chg)}</span></div>`;
-}
-
-function recHtml(rec) {
-  if (!rec || !rec.action) return '—';
-  const cls = 'action-' + rec.action.replace(/\s+/g, '-');
-  return `<span class="rec ${cls}">${rec.action}${rec.reason ? `<span class="rec-reason">${rec.reason}</span>` : ''}</span>`;
-}
-function aiHtml(id) {
-  const r = AI_RESULTS[id];
-  if (!r) return '<span style="color:var(--t3)">—</span>';
-  const cls = 'action-' + r.action.replace(/\s+/g, '-');
-  return `<div class="ai-badge-wrap"><span class="rec ${cls}">${r.action}</span><span class="ai-conf">${r.confidence}% conf.</span></div>`;
-}
+function qualityBadge(q) { if (!q) return '—'; return `<span class="quality-badge ${QUALITY_CLASS[q] || ''}">${q}</span>`; }
+function riskBadge(r) { if (!r) return '—'; return `<span class="risk-badge risk-${r}">${r}</span>`; }
 
 function renderHoldings(rows) {
   const body = rows.map(h => `<tr>
-    <td><span class="sym-link" onclick="openTrendModal(${h.id})">📈 ${h.symbol}</span></td>
-    <td class="spark-cell">${h.status === 'ACTIVE' ? sparkCell(h) : '—'}</td>
+    <td>
+      <span class="sym-link" onclick="openTrendModal(${h.id})">📈 ${h.symbol}</span>
+      <span class="sector-tag">${h.sector || ''}</span>
+    </td>
     <td>${fNum(h.quantity)}</td>
     <td>${inr(h.avg_buy_price)}</td>
-    <td>${h.buy_date || '<span class="status-pill status-missing">Missing</span>'}</td>
-    <td>${h.days_held ?? '—'}</td>
     <td>${inr(h.current_price)}</td>
-    <td>${inr(h.investment_amount)}</td>
     <td>${inr(h.current_value)}</td>
     <td class="${pCls(h.profit_loss)}">${inr(h.profit_loss)}</td>
     <td class="${pCls(h.gain_pct)}">${fPct(h.gain_pct)}</td>
-    <td>${h.status === 'ACTIVE' ? recHtml(h.recommendation) : '—'}</td>
-    <td>${h.status === 'ACTIVE' ? aiHtml(h.id) : '—'}</td>
-    <td><span class="status-pill ${h.status === 'ACTIVE' ? 'status-active' : 'status-sold'}">${h.status}</span></td>
+    <td>${h.status === 'ACTIVE' ? scoreBar(h.position_score) : '—'}</td>
+    <td>${h.status === 'ACTIVE' ? `<span class="conf-num">${h.confidence}%</span>` : '—'}</td>
+    <td>${h.status === 'ACTIVE' ? `<span class="trend-tag">${h.trend_quality || '—'}</span>` : '—'}</td>
+    <td>${h.status === 'ACTIVE' ? `<span class="trend-tag">${h.momentum_quality || '—'}</span>` : '—'}</td>
+    <td>${h.status === 'ACTIVE' ? riskBadge(h.risk_level) : '—'}</td>
+    <td>${h.status === 'ACTIVE' && h.portfolio_contribution != null ? f1(h.portfolio_contribution) + '%' : '—'}</td>
+    <td class="${pCls(h.chg_1d)}">${h.status === 'ACTIVE' ? fPct(h.chg_1d) : '—'}</td>
+    <td>${h.status === 'ACTIVE' ? qualityBadge(h.position_status) : `<span class="status-pill status-sold">SOLD</span>`}</td>
     <td><div class="table-actions">${h.status === 'ACTIVE' ? `<button class="link-btn" onclick="editHolding(${h.id})">Edit</button><button class="link-btn" onclick="sellHolding(${h.id})">Mark Sold</button>` : ''}<button class="danger-btn" onclick="deleteHolding(${h.id})">Delete</button></div></td>
   </tr>`).join('');
   document.getElementById('holdingsTable').innerHTML =
-    `<table><thead><tr><th>Symbol</th><th>Trend (30d)</th><th>Qty</th><th>Avg Buy</th><th>Buy Date</th><th>Days</th><th>Current</th><th>Investment</th><th>Value</th><th>P/L</th><th>Gain %</th><th>Rule Rec</th><th>AI Verdict</th><th>Status</th><th>Actions</th></tr></thead>
-    <tbody>${body || '<tr class="empty-row"><td colspan="15">No holdings yet — add one below or upload a broker file</td></tr>'}</tbody></table>`;
+    `<table><thead><tr><th>Symbol</th><th>Qty</th><th>Avg Buy</th><th>Current</th><th>Value</th><th>P/L</th><th>Gain %</th><th>Position Score</th><th>Confidence</th><th>Trend</th><th>Momentum</th><th>Risk</th><th>Weight</th><th>Chg Today</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${body || '<tr class="empty-row"><td colspan="16">No holdings yet — add one below or upload a broker file</td></tr>'}</tbody></table>`;
 }
 
 function renderHistory(rows) {
@@ -572,6 +552,8 @@ function renderHistory(rows) {
 function renderAnalytics(s) {
   const sectors = s.sector_allocation || [];
   const dead = s.dead_money || [];
+  const tax = s.tax_estimate || {};
+  const risk = s.risk || {};
   const bars = sectors.map(x => `<div class="mini-bar"><div>${x.sector}</div><div class="mini-track"><div class="mini-fill" style="width:${Math.min(100, x.pct)}%"></div></div><div>${f1(x.pct)}%</div></div>`).join('');
   document.getElementById('portfolioAnalytics').innerHTML = `
     <div class="analytics-grid">
@@ -582,8 +564,17 @@ function renderAnalytics(s) {
         <div class="mini-bars" style="padding-top:0">${dead.map(h => `<div class="mini-bar"><div>${h.symbol}</div><div>${h.days_held} days</div><div class="${pCls(h.gain_pct)}">${fPct(h.gain_pct)}</div></div>`).join('') || '<span class="panel-sub" style="padding:0 16px">None</span>'}</div>
       </div>
       <div class="analytics-col">
-        <div class="panel-title" style="padding:12px 16px 0">Winners vs Losers (by capital)</div>
+        <div class="panel-title" style="padding:12px 16px 0">Concentration Risk</div>
+        <div class="pf-note">${risk.flag ? `<span class="risk-pill risk-${risk.flag}">${risk.flag}</span> ` : ''}Top position ${f1(risk.top_position_pct)}% of capital · Top sector ${f1(risk.top_sector_pct)}%</div>
+        <div class="panel-title" style="padding:8px 16px 0">Winners vs Losers (by capital)</div>
         <div class="pf-note">Winning Capital: ${f1(s.winners_vs_losers?.winning_capital_pct)}% · Losing Capital: ${f1(s.winners_vs_losers?.losing_capital_pct)}%</div>
+        <div class="panel-title" style="padding:8px 16px 0">Estimated Capital Gains Tax</div>
+        <div class="pf-note">
+          Short-term unrealized gain: ${inr(tax.stcg_unrealized_gain)} → est. tax ${inr(tax.estimated_stcg_tax)}<br/>
+          Long-term unrealized gain: ${inr(tax.ltcg_unrealized_gain)} (₹${fNum(tax.ltcg_exemption_used)} exempt) → est. tax ${inr(tax.estimated_ltcg_tax)}<br/>
+          <strong>Total if sold today: ${inr(tax.estimated_total_tax_if_sold_today)}</strong><br/>
+          <span style="color:var(--t3)">${tax.disclaimer || ''}</span>
+        </div>
       </div>
     </div>`;
 }
@@ -648,12 +639,59 @@ async function deleteHolding(id) {
   toast('Holding deleted'); loadAll();
 }
 
-// ── TRENDLINE MODAL ──────────────────────────────────────────────
+// ── POSITION DETAIL MODAL ────────────────────────────────────────
+const BREAKDOWN_LABELS = {
+  momentum: 'Momentum', relative_strength: 'Relative Strength', trend: 'Trend Strength',
+  volume: 'Volume Quality', price_structure: 'Price Structure', drawdown_risk: 'Drawdown Risk',
+  near_high: '52-Week High Proximity', sector: 'Sector Strength',
+};
+const BREAKDOWN_WEIGHTS = {momentum:.25, relative_strength:.20, trend:.20, volume:.10, price_structure:.10, drawdown_risk:.05, near_high:.05, sector:.05};
+
+function renderPositionIntel(h) {
+  const wrap = document.getElementById('detailIntel');
+  if (h.status !== 'ACTIVE' || !h.score_breakdown) {
+    wrap.innerHTML = `<div class="panel-sub">Position Intelligence is only computed for active holdings.</div>`;
+    return;
+  }
+  const b = h.score_breakdown;
+  const contributions = Object.keys(b).map(k => ({ key: k, value: b[k], weighted: b[k] * (BREAKDOWN_WEIGHTS[k] || 0) }));
+  contributions.sort((a, c) => c.weighted - a.weighted);
+  const strengths = contributions.filter(c => c.value >= 65).slice(0, 3);
+  const risks = contributions.filter(c => c.value < 45).slice(0, 3);
+
+  wrap.innerHTML = `
+    <div class="cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+      <div class="card"><div class="card-label">Position Score</div><div class="card-value">${h.position_score}</div></div>
+      <div class="card"><div class="card-label">Confidence</div><div class="card-value">${h.confidence}%</div></div>
+      <div class="card"><div class="card-label">Risk Level</div><div class="card-value">${riskBadge(h.risk_level)}</div></div>
+      <div class="card"><div class="card-label">Portfolio Weight</div><div class="card-value">${h.portfolio_contribution != null ? f1(h.portfolio_contribution) + '%' : '—'}</div></div>
+    </div>
+    <div style="margin-bottom:6px">${qualityBadge(h.position_status)} <span class="panel-sub" style="display:inline">${h.trend_quality} · ${h.momentum_quality} · RS: ${h.relative_strength_label}</span></div>
+    <div class="panel-title" style="font-size:12px;margin:14px 0 8px">Score Breakdown</div>
+    <div class="mini-bars" style="padding:0">
+      ${contributions.map(c => `<div class="mini-bar"><div>${BREAKDOWN_LABELS[c.key]} <span style="color:var(--t3)">(${Math.round((BREAKDOWN_WEIGHTS[c.key]||0)*100)}%)</span></div><div class="mini-track"><div class="mini-fill" style="width:${c.value}%;background:${SCORE_COLOR(c.value)}"></div></div><div class="mono">${c.value}</div></div>`).join('')}
+    </div>
+    <div class="analytics-grid" style="margin-top:14px">
+      <div class="analytics-col">
+        <div class="panel-title" style="font-size:12px;padding:0 0 8px">Strength Factors</div>
+        ${strengths.length ? strengths.map(s => `<div class="pf-note" style="padding:2px 0">✓ ${BREAKDOWN_LABELS[s.key]} at ${s.value}</div>`).join('') : '<div class="pf-note">No standout strengths currently.</div>'}
+      </div>
+      <div class="analytics-col">
+        <div class="panel-title" style="font-size:12px;padding:0 0 8px">Risk Factors</div>
+        ${risks.length ? risks.map(r => `<div class="pf-note" style="padding:2px 0">⚠ ${BREAKDOWN_LABELS[r.key]} at ${r.value}</div>`).join('') : '<div class="pf-note">No material risk factors flagged.</div>'}
+      </div>
+    </div>
+    <div class="panel-title" style="font-size:12px;margin:14px 0 4px">Why the Position Score Looks Like This</div>
+    <div class="pf-note">${BREAKDOWN_LABELS[contributions[0].key]} is the largest contributor to this score at ${contributions[0].value}. ${risks.length ? BREAKDOWN_LABELS[risks[0].key] + ' is the main drag, at ' + risks[0].value + '.' : 'No single factor is meaningfully dragging the score down.'}</div>`;
+}
+
 async function openTrendModal(id) {
   const h = HOLDINGS.find(x => x.id === id);
   if (!h) return;
   document.getElementById('trendModal').classList.remove('hidden');
-  document.getElementById('trendModalTitle').textContent = `${h.symbol} — price since ${h.buy_date || 'purchase'}`;
+  document.getElementById('trendModalTitle').textContent = `${h.symbol} — Position Intelligence`;
+  document.getElementById('trendModalSub').textContent = h.company_name ? `${h.company_name} · ${h.sector || ''}` : (h.sector || '');
+  renderPositionIntel(h);
   document.getElementById('trendModalNote').textContent = 'Loading…';
   try {
     const d = await apiFetch(`/api/portfolio/holdings/${id}/trendline`);
