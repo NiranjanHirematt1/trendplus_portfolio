@@ -112,7 +112,12 @@ tr:last-child td{border-bottom:none}
 .rec-add,.action-ADD-MORE{color:var(--green);background:var(--green-bg)}
 .rec-hold,.action-HOLD{color:var(--blue);background:var(--blue-bg)}
 .rec-trim,.action-TRIM{color:var(--amber);background:var(--amber-bg)}
-.rec-exit,.action-EXIT-ALL{color:var(--red);background:var(--red-bg)}
+.rec-exit,.action-EXIT-ALL,.action-EXIT{color:var(--red);background:var(--red-bg)}
+.rec-review,.action-REVIEW{color:var(--purple);background:var(--purple-bg)}
+.rec-reason{display:block;font-size:9.5px;color:var(--t3);font-weight:500;text-transform:none;letter-spacing:0;margin-top:2px;white-space:normal;max-width:220px}
+.spark-cell{width:96px}
+.spark-wrap{display:flex;align-items:center;gap:6px}
+.spark-chg{font-size:10.5px;font-weight:700}
 .table-actions{display:flex;gap:6px;flex-wrap:wrap}
 .link-btn{color:var(--blue);font-size:11.5px;font-weight:700}
 .link-btn:hover{text-decoration:underline}
@@ -133,6 +138,19 @@ tr:last-child td{border-bottom:none}
 @media(max-width:800px){.analytics-grid{grid-template-columns:1fr}}
 .analytics-col{padding:4px 0}
 .analytics-col+.analytics-col{border-left:1px solid var(--border)}
+
+/* Top Gainers / Top Losers */
+.gl-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+@media(max-width:800px){.gl-grid{grid-template-columns:1fr}}
+.gl-col+.gl-col{border-left:1px solid var(--border)}
+@media(max-width:800px){.gl-col+.gl-col{border-left:none;border-top:1px solid var(--border)}}
+.gl-head{display:flex;align-items:center;gap:6px;padding:12px 16px 6px;font-weight:700;font-size:12.5px}
+.gl-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 16px;font-size:12.5px}
+.gl-row+.gl-row{border-top:1px solid var(--border)}
+.gl-sym{font-family:var(--font-mono);font-weight:700;cursor:pointer;color:var(--t0)}
+.gl-sym:hover{color:var(--blue)}
+.gl-sub{color:var(--t3);font-size:10.5px}
+.gl-empty{padding:14px 16px;color:var(--t2);font-size:12px}
 @media(max-width:800px){.analytics-col+.analytics-col{border-left:none;border-top:1px solid var(--border)}}
 
 .empty-row td{text-align:center;color:var(--t2);padding:22px}
@@ -248,7 +266,12 @@ tr:last-child td{border-bottom:none}
   </section>
 
   <section class="panel">
-    <div class="panel-head"><div><div class="panel-title">Holdings</div><div class="panel-sub">Click a symbol's trend icon to see its price line from purchase date to today.</div></div></div>
+    <div class="panel-head"><div><div class="panel-title">Top Gainers &amp; Losers</div><div class="panel-sub">Your best and worst performing active holdings right now, by unrealized gain %.</div></div></div>
+    <div class="gl-grid" id="gainersLosers"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><div><div class="panel-title">Holdings</div><div class="panel-sub">The mini chart shows the last ~30 trading days. Click a symbol for the full trendline since purchase.</div></div></div>
     <div class="pf-table-wrap" id="holdingsTable"></div>
   </section>
 
@@ -258,7 +281,7 @@ tr:last-child td{border-bottom:none}
   </section>
 
   <section class="panel">
-    <div class="panel-head"><div><div class="panel-title">Portfolio Analytics</div><div class="panel-sub">Sector allocation, dead-money stocks and estimated capital-gains tax.</div></div></div>
+    <div class="panel-head"><div><div class="panel-title">Portfolio Analytics</div><div class="panel-sub">Sector allocation and stagnant "dead money" positions. Tax is handled by your broker's contract notes, not shown here.</div></div></div>
     <div id="portfolioAnalytics"></div>
   </section>
 
@@ -282,7 +305,12 @@ tr:last-child td{border-bottom:none}
 
 <script>
 'use strict';
-const API = 'http://localhost:8000';
+// Auto-detects local dev vs. production. Update PROD_API if your Render URL
+// differs from render.yaml's default service name.
+const PROD_API = 'http://localhost:8000';
+const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:8000'
+  : PROD_API;
 let AUTH_TOKEN = localStorage.getItem('tp_token') || '';
 let CURRENT_USER = null;
 let HOLDINGS = [];
@@ -372,11 +400,13 @@ async function loadAll() {
     HOLDINGS = holdings.data || [];
     AI_RESULTS = {};
     renderCards(summary);
+    renderGainersLosers(summary);
     renderHoldings(HOLDINGS);
     renderHistory(HOLDINGS.filter(h => h.status === 'SOLD'));
     renderAnalytics(summary);
     renderMissingDates(HOLDINGS.filter(h => h.requires_confirmation));
     renderAIPlaceholder();
+    loadSparklines(); // fire-and-forget: fills in mini-charts once loaded, doesn't block the rest of the page
   } catch (e) {
     toast(cleanErr(e.message), 5000);
     if (e.message.startsWith('401')) { setAuth(''); CURRENT_USER = null; showScreen(); }
@@ -386,7 +416,7 @@ async function loadAll() {
 function renderCards(summary) {
   const c = summary.cards || {};
   const risk = summary.risk || {};
-  const tax = summary.tax_estimate || {};
+  const needsReview = (summary.needs_review || []).length;
   const items = [
     ['Total Investment', inr(c.total_investment), ''],
     ['Current Value', inr(c.current_value), ''],
@@ -396,10 +426,32 @@ function renderCards(summary) {
     ['Diversification', risk.diversification_score != null ? risk.diversification_score : '—',
       risk.flag ? `<span class="risk-pill risk-${risk.flag}">${risk.flag}</span> top position ${f1(risk.top_position_pct)}%` : ''],
     ['Holdings', fNum(c.number_of_holdings), `${fNum(c.winning_holdings)} up · ${fNum(c.losing_holdings)} down`],
-    ['Est. Tax If Sold Today', inr(tax.estimated_total_tax_if_sold_today), 'LTCG/STCG estimate, see Analytics'],
+    ['Needs Review', fNum(needsReview), needsReview ? 'Missing price data — see Holdings table' : 'All holdings have current price data'],
   ];
   document.getElementById('dashboardCards').innerHTML = items.map(([l, v, s]) =>
     `<div class="card"><div class="card-label">${l}</div><div class="card-value">${v}</div>${s ? `<div class="card-sub">${s}</div>` : ''}</div>`).join('');
+}
+
+// ── TOP GAINERS / LOSERS ─────────────────────────────────────────
+function glRow(h) {
+  return `<div class="gl-row">
+    <span class="gl-sym" onclick="openTrendModal(${h.id})">${h.symbol}</span>
+    <div><div class="gl-sub">${inr(h.current_value)} · ${fNum(h.quantity)} sh</div></div>
+    <span class="${pCls(h.gain_pct)} spark-chg">${fPct(h.gain_pct)}</span>
+  </div>`;
+}
+function renderGainersLosers(s) {
+  const gainers = (s.top_gainers || []).filter(h => Number(h.gain_pct) > 0);
+  const losers = (s.top_losers || []).filter(h => Number(h.gain_pct) < 0);
+  document.getElementById('gainersLosers').innerHTML = `
+    <div class="gl-col">
+      <div class="gl-head">📈 Top Gainers</div>
+      ${gainers.length ? gainers.map(glRow).join('') : '<div class="gl-empty">No holdings currently in the green</div>'}
+    </div>
+    <div class="gl-col">
+      <div class="gl-head">📉 Top Losers</div>
+      ${losers.length ? losers.map(glRow).join('') : '<div class="gl-empty">No holdings currently in the red</div>'}
+    </div>`;
 }
 
 // ── AI ANALYSIS ────────────────────────────────────────────────
@@ -443,17 +495,39 @@ async function runAIAnalysis() {
 }
 
 // ── HOLDINGS / HISTORY / ANALYTICS ──────────────────────────────
-function recommendation(h) {
-  // Mirrors the backend's rule-based heuristic for a quick local badge alongside the AI verdict.
-  const gain = Number(h.gain_pct || 0), momentum = Number(h.momentum_score || 0), rs = Number(h.rs_score || 0);
-  const trend = Number(h.trending_days || 0) / 12 * 100;
-  const score = gain * 0.25 + momentum * 0.30 + rs * 0.20 + trend * 0.15;
-  if (score >= 65 && gain >= 0) return 'ADD MORE';
-  if (score >= 45) return 'HOLD';
-  if (score >= 25 || gain > 10) return 'TRIM';
-  return 'EXIT';
+let SPARKLINES = {};
+async function loadSparklines() {
+  try {
+    const d = await apiFetch('/api/portfolio/holdings/sparklines');
+    SPARKLINES = d.data || {};
+    renderHoldings(HOLDINGS); // re-render once mini-charts are ready
+  } catch (e) { /* sparklines are a nice-to-have; fail silently */ }
 }
-function recHtml(r) { if (!r) return '—'; const cls = r === 'ADD MORE' ? 'rec-add' : r === 'HOLD' ? 'rec-hold' : r === 'TRIM' ? 'rec-trim' : 'rec-exit'; return `<span class="rec ${cls}">${r}</span>`; }
+function sparkSvg(points, isUp) {
+  if (!points || points.length < 2) return '<span style="color:var(--t3)">—</span>';
+  const prices = points.map(p => Number(p.close_price));
+  const min = Math.min(...prices), max = Math.max(...prices);
+  const w = 80, h = 26, pad = 2;
+  const range = (max - min) || 1;
+  const step = (w - pad * 2) / (prices.length - 1);
+  const coords = prices.map((p, i) => `${(pad + i * step).toFixed(1)},${(h - pad - ((p - min) / range) * (h - pad * 2)).toFixed(1)}`);
+  const color = isUp ? '#10b981' : '#ef4444';
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${coords.join(' ')}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+function sparkCell(h) {
+  const pts = SPARKLINES[h.symbol];
+  if (!pts) return '<span style="color:var(--t3);font-size:11px">Loading…</span>';
+  if (pts.length < 2) return '<span style="color:var(--t3)">No data</span>';
+  const first = Number(pts[0].close_price), last = Number(pts[pts.length - 1].close_price);
+  const chg = first ? ((last - first) / first * 100) : 0;
+  return `<div class="spark-wrap">${sparkSvg(pts, chg >= 0)}<span class="${pCls(chg)} spark-chg">${fPct(chg)}</span></div>`;
+}
+
+function recHtml(rec) {
+  if (!rec || !rec.action) return '—';
+  const cls = 'action-' + rec.action.replace(/\s+/g, '-');
+  return `<span class="rec ${cls}">${rec.action}${rec.reason ? `<span class="rec-reason">${rec.reason}</span>` : ''}</span>`;
+}
 function aiHtml(id) {
   const r = AI_RESULTS[id];
   if (!r) return '<span style="color:var(--t3)">—</span>';
@@ -464,6 +538,7 @@ function aiHtml(id) {
 function renderHoldings(rows) {
   const body = rows.map(h => `<tr>
     <td><span class="sym-link" onclick="openTrendModal(${h.id})">📈 ${h.symbol}</span></td>
+    <td class="spark-cell">${h.status === 'ACTIVE' ? sparkCell(h) : '—'}</td>
     <td>${fNum(h.quantity)}</td>
     <td>${inr(h.avg_buy_price)}</td>
     <td>${h.buy_date || '<span class="status-pill status-missing">Missing</span>'}</td>
@@ -473,14 +548,14 @@ function renderHoldings(rows) {
     <td>${inr(h.current_value)}</td>
     <td class="${pCls(h.profit_loss)}">${inr(h.profit_loss)}</td>
     <td class="${pCls(h.gain_pct)}">${fPct(h.gain_pct)}</td>
-    <td>${h.status === 'ACTIVE' ? recHtml(recommendation(h)) : '—'}</td>
+    <td>${h.status === 'ACTIVE' ? recHtml(h.recommendation) : '—'}</td>
     <td>${h.status === 'ACTIVE' ? aiHtml(h.id) : '—'}</td>
     <td><span class="status-pill ${h.status === 'ACTIVE' ? 'status-active' : 'status-sold'}">${h.status}</span></td>
     <td><div class="table-actions">${h.status === 'ACTIVE' ? `<button class="link-btn" onclick="editHolding(${h.id})">Edit</button><button class="link-btn" onclick="sellHolding(${h.id})">Mark Sold</button>` : ''}<button class="danger-btn" onclick="deleteHolding(${h.id})">Delete</button></div></td>
   </tr>`).join('');
   document.getElementById('holdingsTable').innerHTML =
-    `<table><thead><tr><th>Symbol</th><th>Qty</th><th>Avg Buy</th><th>Buy Date</th><th>Days</th><th>Current</th><th>Investment</th><th>Value</th><th>P/L</th><th>Gain %</th><th>Rule Rec</th><th>AI Verdict</th><th>Status</th><th>Actions</th></tr></thead>
-    <tbody>${body || '<tr class="empty-row"><td colspan="14">No holdings yet — add one below or upload a broker file</td></tr>'}</tbody></table>`;
+    `<table><thead><tr><th>Symbol</th><th>Trend (30d)</th><th>Qty</th><th>Avg Buy</th><th>Buy Date</th><th>Days</th><th>Current</th><th>Investment</th><th>Value</th><th>P/L</th><th>Gain %</th><th>Rule Rec</th><th>AI Verdict</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${body || '<tr class="empty-row"><td colspan="15">No holdings yet — add one below or upload a broker file</td></tr>'}</tbody></table>`;
 }
 
 function renderHistory(rows) {
@@ -497,7 +572,6 @@ function renderHistory(rows) {
 function renderAnalytics(s) {
   const sectors = s.sector_allocation || [];
   const dead = s.dead_money || [];
-  const tax = s.tax_estimate || {};
   const bars = sectors.map(x => `<div class="mini-bar"><div>${x.sector}</div><div class="mini-track"><div class="mini-fill" style="width:${Math.min(100, x.pct)}%"></div></div><div>${f1(x.pct)}%</div></div>`).join('');
   document.getElementById('portfolioAnalytics').innerHTML = `
     <div class="analytics-grid">
@@ -510,13 +584,6 @@ function renderAnalytics(s) {
       <div class="analytics-col">
         <div class="panel-title" style="padding:12px 16px 0">Winners vs Losers (by capital)</div>
         <div class="pf-note">Winning Capital: ${f1(s.winners_vs_losers?.winning_capital_pct)}% · Losing Capital: ${f1(s.winners_vs_losers?.losing_capital_pct)}%</div>
-        <div class="panel-title" style="padding:8px 16px 0">Estimated Capital Gains Tax</div>
-        <div class="pf-note">
-          Short-term unrealized gain: ${inr(tax.stcg_unrealized_gain)} → est. tax ${inr(tax.estimated_stcg_tax)}<br/>
-          Long-term unrealized gain: ${inr(tax.ltcg_unrealized_gain)} (₹${fNum(tax.ltcg_exemption_used)} exempt) → est. tax ${inr(tax.estimated_ltcg_tax)}<br/>
-          <strong>Total if sold today: ${inr(tax.estimated_total_tax_if_sold_today)}</strong><br/>
-          <span style="color:var(--t3)">${tax.disclaimer || ''}</span>
-        </div>
       </div>
     </div>`;
 }

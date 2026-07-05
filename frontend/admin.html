@@ -91,7 +91,8 @@ tr:last-child td{border-bottom:none}
 <body>
 
 <header class="topbar">
-  <div class="logo">TrendPlus <span>Admin</span></div>
+  <a class="logo" href="./index.html" style="text-decoration:none;color:inherit">TrendPlus <span>Admin</span></a>
+  <a href="./index.html" style="color:var(--t2);font-size:12.5px;text-decoration:none;font-weight:500;margin-left:16px">← Screener</a>
   <div class="topbar-right">
     <button class="btn btn-ghost hidden" id="logoutBtn" onclick="adminLogout()">Log out</button>
   </div>
@@ -126,6 +127,7 @@ tr:last-child td{border-bottom:none}
   <section class="panel">
     <div class="panel-head">
       <div><div class="panel-title">Existing Users</div><div class="panel-sub">Approved accounts</div></div>
+      <input class="finput" id="userSearch" placeholder="Search name or email…" style="max-width:220px" oninput="renderUsers()"/>
     </div>
     <div style="overflow:auto">
       <table>
@@ -137,14 +139,13 @@ tr:last-child td{border-bottom:none}
 
   <section class="panel">
     <div class="panel-head">
-      <div><div class="panel-title">Modules</div><div class="panel-sub">Reserved for future features</div></div>
+      <div><div class="panel-title">Roadmap</div><div class="panel-sub">Planned admin modules, not yet built</div></div>
     </div>
-    <div class="placeholder-grid">
-      <div class="placeholder-card"><div class="ph-title">Portfolio Analyzer</div><div class="ph-sub">Coming soon</div></div>
-      <div class="placeholder-card"><div class="ph-title">Website Analytics</div><div class="ph-sub">Coming soon</div></div>
-      <div class="placeholder-card"><div class="ph-title">User Feedback</div><div class="ph-sub">Coming soon</div></div>
-      <div class="placeholder-card"><div class="ph-title">Contact Messages</div><div class="ph-sub">Coming soon</div></div>
-      <div class="placeholder-card"><div class="ph-title">Activity Logs</div><div class="ph-sub">Coming soon</div></div>
+    <div style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px">
+      <span class="pill" style="color:var(--t2);background:var(--bg2);border-color:var(--border2)">Website analytics</span>
+      <span class="pill" style="color:var(--t2);background:var(--bg2);border-color:var(--border2)">User feedback</span>
+      <span class="pill" style="color:var(--t2);background:var(--bg2);border-color:var(--border2)">Contact messages</span>
+      <span class="pill" style="color:var(--t2);background:var(--bg2);border-color:var(--border2)">Activity logs</span>
     </div>
   </section>
 
@@ -153,7 +154,12 @@ tr:last-child td{border-bottom:none}
 <div class="toast" id="toast"></div>
 
 <script>
-const API = 'http://localhost:8000'; // same backend as the main app (frontend/index.html)
+// Same backend as index.html/portfolio.html. Update PROD_API if your Render
+// URL differs from render.yaml's default service name.
+const PROD_API = 'http://localhost:8000'; // Change this to your Render backend URL if different
+const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+  ? 'http://localhost:8000'
+  : PROD_API;
 
 let ADMIN_TOKEN = sessionStorage.getItem('tp_admin_token') || '';
 
@@ -231,27 +237,33 @@ async function loadPending() {
   } catch (e) { toast(cleanErr(e.message), 5000); }
 }
 
+let USERS = [];
 async function loadUsers() {
   try {
     const d = await adminFetch('/api/admin/panel/users');
-    const rows = d.data || [];
-    document.getElementById('usersBody').innerHTML = rows.length ? rows.map(u => `
-      <tr>
-        <td>${escapeHtml(u.full_name)}</td>
-        <td>${escapeHtml(u.email)}</td>
-        <td>${escapeHtml(u.phone || '—')}</td>
-        <td>${fmtDate(u.created_at)}</td>
-        <td>${u.last_login_at ? fmtDate(u.last_login_at) : '—'}</td>
-        <td><span class="pill ${u.active ? 'pill-active' : 'pill-disabled'}">${u.active ? 'Active' : 'Disabled'}</span></td>
-        <td class="actions">
-          ${u.active
-            ? `<button class="link-btn" onclick="disableUser(${u.id})">Disable</button>`
-            : `<button class="link-btn" onclick="enableUser(${u.id})">Enable</button>`}
-          <button class="link-btn" onclick="resetPassword(${u.id})">Reset Password</button>
-          <button class="btn-danger" onclick="deleteUser(${u.id})">Delete</button>
-        </td>
-      </tr>`).join('') : `<tr class="empty-row"><td colspan="7">No users yet</td></tr>`;
+    USERS = d.data || [];
+    renderUsers();
   } catch (e) { toast(cleanErr(e.message), 5000); }
+}
+function renderUsers() {
+  const q = (document.getElementById('userSearch')?.value || '').trim().toLowerCase();
+  const rows = q ? USERS.filter(u => (u.full_name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)) : USERS;
+  document.getElementById('usersBody').innerHTML = rows.length ? rows.map(u => `
+    <tr>
+      <td>${escapeHtml(u.full_name)}</td>
+      <td>${escapeHtml(u.email)}</td>
+      <td>${escapeHtml(u.phone || '—')}</td>
+      <td>${fmtDate(u.created_at)}</td>
+      <td>${u.last_login_at ? fmtDate(u.last_login_at) : '—'}</td>
+      <td><span class="pill ${u.active ? 'pill-active' : 'pill-disabled'}">${u.active ? 'Active' : 'Disabled'}</span></td>
+      <td class="actions">
+        ${u.active
+          ? `<button class="link-btn" onclick="disableUser(${u.id})">Disable</button>`
+          : `<button class="link-btn" onclick="enableUser(${u.id})">Enable</button>`}
+        <button class="link-btn" onclick="resetPassword(${u.id})">Reset Password</button>
+        <button class="btn-danger" onclick="deleteUser(${u.id})">Delete</button>
+      </td>
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="7">${q ? 'No users match your search' : 'No users yet'}</td></tr>`;
 }
 
 async function approveUser(id) { try { await adminFetch(`/api/admin/panel/pending-users/${id}/approve`, { method: 'POST' }); toast('User approved'); loadAll(); } catch (e) { toast(cleanErr(e.message), 5000); } }

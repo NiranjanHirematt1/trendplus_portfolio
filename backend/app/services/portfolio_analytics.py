@@ -1,16 +1,16 @@
 """
 Trader-grade portfolio analytics: XIRR, concentration/diversification risk,
-and an approximate Indian equity capital-gains tax estimate.
+and peak-drawdown tracking used by the Hold/Trim/Exit rule engine.
 
-These are computed from data already in `holdings`/`trend_results` — no new
-tables required.
+Tax calculation has been intentionally removed - that is the broker's
+responsibility (contract notes / capital-gains statements), not ours.
 """
 from __future__ import annotations
 
 from datetime import date
 from typing import Any
 
-# ── XIRR (money-weighted return) ────────────────────────────────────────
+# -- XIRR (money-weighted return) ----------------------------------------
 # Accounts for *when* each buy happened, unlike simple gain% which treats
 # every rupee as invested for the same length of time.
 
@@ -35,7 +35,6 @@ def xirr(cashflows: list[tuple[date, float]]) -> float | None:
     rate = 0.15  # initial guess: 15%
     for _ in range(100):
         npv = _npv(rate, cashflows, today)
-        # numerical derivative
         h = 1e-5
         d_npv = (_npv(rate + h, cashflows, today) - npv) / h
         if abs(d_npv) < 1e-12:
@@ -68,7 +67,7 @@ def portfolio_xirr(active_holdings: list[dict[str, Any]]) -> float | None:
     return xirr(cashflows)
 
 
-# ── Concentration / diversification risk ────────────────────────────────
+# -- Concentration / diversification risk --------------------------------
 
 def concentration_risk(active_holdings: list[dict[str, Any]]) -> dict[str, Any]:
     """Herfindahl-Hirschman Index on position weights, plus a friendlier 0-100 score
@@ -98,42 +97,34 @@ def concentration_risk(active_holdings: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-# ── Approximate Indian equity capital-gains tax estimate ─────────────────
-# Rules used (post July-2024 budget, STT-paid listed equity):
-#   Short-term (< 365 days held):  20% flat, no exemption
-#   Long-term  (>= 365 days held): 12.5%, first ₹1,25,000 of aggregate LTCG per year exempt
-# This is an approximation for planning purposes only, not tax advice — rates,
-# exemptions, and holding-period rules can change and don't account for other
-# income, prior losses, or non-equity holdings.
-LTCG_EXEMPTION = 125_000
-LTCG_RATE = 0.125
-STCG_RATE = 0.20
+# -- Peak-drawdown since purchase -----------------------------------------
+# Powers the trailing-stop rule: how far has each holding fallen from its
+# highest close since the day it was bought? A stock can still be "up" on
+# your original entry while having given back a lot of its gains - that's
+# exactly the situation a trailing stop is meant to catch.
 
+def compute_peak_drawdowns(price_rows: list[dict[str, Any]], holdings: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
+    """price_rows: [{"symbol", "trade_date", "close_price"}, ...] for all symbols
+    involved, going back at least as far as the earliest buy_date.
+    Returns {holding_id: {"peak_price": float, "drawdown_from_peak_pct": float}}.
+    """
+    by_symbol: dict[str, list[tuple[date, float]]] = {}
+    for pr in price_rows:
+        by_symbol.setdefault(pr["symbol"], []).append((pr["trade_date"], float(pr["close_price"])))
 
-def tax_estimate(active_holdings: list[dict[str, Any]]) -> dict[str, Any]:
-    stcg_gain = 0.0
-    ltcg_gain = 0.0
-    for h in active_holdings:
-        pnl = h.get("profit_loss")
-        days_held = h.get("days_held")
-        if pnl is None or pnl <= 0 or days_held is None:
-            continue  # tax only applies to gains; losses can offset but that's beyond this estimate
-        if days_held >= 365:
-            ltcg_gain += float(pnl)
-        else:
-            stcg_gain += float(pnl)
-
-    taxable_ltcg = max(0.0, ltcg_gain - LTCG_EXEMPTION)
-    ltcg_tax = taxable_ltcg * LTCG_RATE
-    stcg_tax = stcg_gain * STCG_RATE
-
-    return {
-        "stcg_unrealized_gain": round(stcg_gain, 2),
-        "ltcg_unrealized_gain": round(ltcg_gain, 2),
-        "ltcg_exemption_used": round(min(ltcg_gain, LTCG_EXEMPTION), 2),
-        "estimated_stcg_tax": round(stcg_tax, 2),
-        "estimated_ltcg_tax": round(ltcg_tax, 2),
-        "estimated_total_tax_if_sold_today": round(stcg_tax + ltcg_tax, 2),
-        "disclaimer": "Approximate, unrealized-gain estimate only — not tax advice. "
-                      "Ignores losses on other positions, other income, and rule changes.",
-    }
+    result: dict[int, dict[str, Any]] = {}
+    for h in holdings:
+        if h.get("status") != "ACTIVE" or not h.get("buy_date") or h.get("current_price") is None:
+            continue
+        points = by_symbol.get(h["symbol"], [])
+        relevant = [p for d, p in points if d >= h["buy_date"]]
+        if not relevant:
+            continue
+        peak = max(relevant)
+        current = float(h["current_price"])
+        if peak > 0:
+            result[h["id"]] = {
+                "peak_price": round(peak, 2),
+                "drawdown_from_peak_pct": round((peak - current) / peak * 100, 2),
+            }
+    return result

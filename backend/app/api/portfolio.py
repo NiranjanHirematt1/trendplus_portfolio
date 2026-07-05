@@ -10,10 +10,18 @@ from app.api.deps import current_user
 from app.core.database import get_pool
 from app.models.portfolio import HoldingCreate, HoldingSold, HoldingUpdate, PortfolioCreate
 from app.services.ai_analysis import AIAnalysisError, analyze_holdings
-from app.services.portfolio_analytics import concentration_risk, portfolio_xirr, tax_estimate
+from app.services.portfolio_analytics import compute_peak_drawdowns, concentration_risk, portfolio_xirr
 from app.services.portfolio_import import parse_portfolio_file
 
 router = APIRouter()
+
+# Rule-engine thresholds (tune here, not scattered through the code)
+STOP_LOSS_PCT = -15                 # hard capital-protection floor, overrides technicals
+TRAILING_STOP_DRAWDOWN_PCT = 20     # % fallen from post-buy high while momentum fades
+TRAILING_STOP_MOMENTUM_MAX = 40     # momentum_score below this counts as "fading"
+CONCENTRATION_TRIM_PCT = 25         # a single position above this % of the portfolio is a risk
+DEAD_MONEY_DAYS = 180
+DEAD_MONEY_BAND_PCT = 5
 
 
 def num(value):
@@ -29,20 +37,49 @@ def as_dict(row):
     return {k: num(v) for k, v in data.items()}
 
 
-def recommendation(row) -> str:
+def recommendation(row, portfolio_contribution_pct: float | None = None) -> dict:
+    """Rule-based Hold/Trim/Add More/Exit verdict with a plain-English reason.
+
+    Capital-protection rules (stop-loss, trailing-stop, concentration) are
+    checked before the momentum/RS/trend score, because a trader needs to
+    know "you're about to lose too much" even when the technicals still
+    look fine.
+    """
+    if row.get("current_price") is None:
+        return {"action": "REVIEW", "reason": "No recent price data for this symbol — check it's still tracked."}
+
     gain = float(row.get("gain_pct") or 0)
     momentum = float(row.get("momentum_score") or 0)
     rs = float(row.get("rs_score") or 0)
     trend = float(row.get("trending_days") or 0) / 12 * 100
     vol_penalty = min(abs(float(row.get("chg_5d") or 0)) * 2, 25)
+    days_held = row.get("days_held") or 0
+    drawdown = row.get("drawdown_from_peak_pct")
+    near_high = row.get("near_52w_high")
+
+    if gain <= STOP_LOSS_PCT:
+        return {"action": "EXIT", "reason": f"Down {gain:.1f}% from entry — past the {abs(STOP_LOSS_PCT)}% stop-loss."}
+
+    if drawdown is not None and drawdown >= TRAILING_STOP_DRAWDOWN_PCT and momentum < TRAILING_STOP_MOMENTUM_MAX:
+        return {"action": "TRIM", "reason": f"{drawdown:.0f}% below its high since you bought, with fading momentum."}
+
+    if portfolio_contribution_pct is not None and portfolio_contribution_pct >= CONCENTRATION_TRIM_PCT and gain > 0:
+        return {"action": "TRIM", "reason": f"{portfolio_contribution_pct:.0f}% of your portfolio is in this one stock — trim to rebalance risk."}
+
     score = gain * 0.25 + momentum * 0.30 + rs * 0.20 + trend * 0.15 - vol_penalty * 0.10
+
+    if days_held >= DEAD_MONEY_DAYS and abs(gain) <= DEAD_MONEY_BAND_PCT:
+        return {"action": "TRIM", "reason": f"Flat for {days_held} days — capital may work harder elsewhere."}
+
+    if near_high and score >= 55:
+        return {"action": "ADD MORE", "reason": "Near its 52-week high with strong trend confirmation."}
     if score >= 65 and gain >= 0:
-        return "ADD MORE"
+        return {"action": "ADD MORE", "reason": "Strong momentum, relative strength and trend support adding."}
     if score >= 45:
-        return "HOLD"
+        return {"action": "HOLD", "reason": "Technicals are steady — no urgent action needed."}
     if score >= 25 or gain > 10:
-        return "TRIM"
-    return "EXIT"
+        return {"action": "TRIM", "reason": "Momentum is fading — consider reducing position size."}
+    return {"action": "EXIT", "reason": "Weak momentum, relative strength and trend strength."}
 
 
 async def ensure_portfolio(conn, user_id) -> int:
@@ -84,6 +121,7 @@ async def portfolio_summary(user=Depends(current_user), pool=Depends(get_pool)):
     async with pool.acquire() as conn:
         pid = await ensure_portfolio(conn, user["id"])
         rows = await enriched_holdings(conn, pid, active_only=False)
+    apply_recommendations(rows)
     active = [r for r in rows if r["status"] == "ACTIVE"]
     total_investment = sum(float(r["investment_amount"] or 0) for r in active)
     current_value = sum(float(r["current_value"] or 0) for r in active)
@@ -94,7 +132,8 @@ async def portfolio_summary(user=Depends(current_user), pool=Depends(get_pool)):
     for r in active:
         sector = r.get("sector") or "Unclassified"
         sector_totals[sector] = sector_totals.get(sector, 0) + float(r["current_value"] or 0)
-    dead = [r for r in active if (r.get("days_held") or 0) > 180 and -5 <= float(r.get("gain_pct") or 0) <= 5]
+    dead = [r for r in active if (r.get("days_held") or 0) > DEAD_MONEY_DAYS and -DEAD_MONEY_BAND_PCT <= float(r.get("gain_pct") or 0) <= DEAD_MONEY_BAND_PCT]
+    priced = [r for r in active if r.get("current_price") is not None]
     return {
         "portfolio_id": pid,
         "cards": {
@@ -108,15 +147,15 @@ async def portfolio_summary(user=Depends(current_user), pool=Depends(get_pool)):
             "losing_holdings": len(losing),
         },
         "risk": concentration_risk(active),
-        "tax_estimate": tax_estimate(active),
-        "top_gainers": sorted(active, key=lambda r: float(r.get("gain_pct") or 0), reverse=True)[:5],
-        "top_losers": sorted(active, key=lambda r: float(r.get("gain_pct") or 0))[:5],
+        "top_gainers": sorted(priced, key=lambda r: float(r.get("gain_pct") or 0), reverse=True)[:5],
+        "top_losers": sorted(priced, key=lambda r: float(r.get("gain_pct") or 0))[:5],
         "winners_vs_losers": {
             "winning_capital_pct": (sum(float(r["current_value"] or 0) for r in winning) / current_value * 100) if current_value else 0,
             "losing_capital_pct": (sum(float(r["current_value"] or 0) for r in losing) / current_value * 100) if current_value else 0,
         },
         "sector_allocation": [{"sector": k, "value": v, "pct": (v / current_value * 100) if current_value else 0} for k, v in sorted(sector_totals.items())],
         "dead_money": dead,
+        "needs_review": [r for r in active if r.get("recommendation", {}).get("action") == "REVIEW"],
     }
 
 
@@ -142,7 +181,8 @@ async def enriched_holdings(conn, portfolio_id: int, active_only: bool = True):
         select h.*, not h.buy_date_confirmed as requires_confirmation,
                s.company_name, s.sector, s.cap_category,
                tr.close_price as current_price, tr.momentum_score, tr.rs_score, tr.trending_days,
-               tr.chg_1d, tr.chg_5d, tr.chg_12d, tr.rsi_14,
+               tr.chg_1d, tr.chg_5d, tr.chg_12d, tr.rsi_14, tr.adx_14,
+               tr.near_52w_high, tr.pct_from_high, tr.high_52w,
                greatest(coalesce(h.sell_date, current_date) - h.buy_date, 0) as days_held,
                (h.quantity * h.avg_buy_price) as investment_amount,
                case when h.status = 'ACTIVE' then (h.quantity * tr.close_price) else (h.quantity * h.sell_price) end as current_value,
@@ -160,15 +200,45 @@ async def enriched_holdings(conn, portfolio_id: int, active_only: bool = True):
     result = []
     for row in rows:
         d = as_dict(row)
-        if d["status"] == "ACTIVE":
-            d["recommendation"] = recommendation(d)
-            d["portfolio_contribution"] = None
-            if d.get("days_held") and d.get("gain_pct") is not None:
-                d["annualized_return"] = ((1 + d["gain_pct"] / 100) ** (365 / max(d["days_held"], 1)) - 1) * 100
-            else:
-                d["annualized_return"] = None
+        if d["status"] == "ACTIVE" and d.get("days_held") and d.get("gain_pct") is not None:
+            d["annualized_return"] = ((1 + d["gain_pct"] / 100) ** (365 / max(d["days_held"], 1)) - 1) * 100
+        elif d["status"] == "ACTIVE":
+            d["annualized_return"] = None
         result.append(d)
+
+    # Peak-drawdown needs price history since the earliest buy date, fetched
+    # once for the whole portfolio rather than per-holding.
+    active = [r for r in result if r["status"] == "ACTIVE" and r.get("buy_date")]
+    if active:
+        symbols = list({r["symbol"] for r in active})
+        earliest = min(r["buy_date"] for r in active)
+        price_rows = await conn.fetch(
+            "select symbol, trade_date, close_price from price_history where symbol = any($1) and trade_date >= $2",
+            symbols, earliest,
+        )
+        drawdowns = compute_peak_drawdowns([dict(p) for p in price_rows], active)
+        for r in result:
+            if r["status"] == "ACTIVE":
+                info = drawdowns.get(r["id"], {})
+                r["peak_price_since_buy"] = info.get("peak_price")
+                r["drawdown_from_peak_pct"] = info.get("drawdown_from_peak_pct")
+
     return result
+
+
+def apply_recommendations(rows: list[dict]) -> None:
+    """Sets portfolio_contribution and recommendation on ACTIVE rows in-place.
+    Contribution must be known before concentration-aware rules can fire, so
+    this always runs as a second pass after the portfolio total is known.
+    """
+    active = [r for r in rows if r["status"] == "ACTIVE"]
+    total_value = sum(float(r.get("current_value") or 0) for r in active)
+    for r in rows:
+        if r["status"] != "ACTIVE":
+            continue
+        contribution = (float(r.get("current_value") or 0) / total_value * 100) if total_value else None
+        r["portfolio_contribution"] = contribution
+        r["recommendation"] = recommendation(r, contribution)
 
 
 @router.get("/holdings", summary="List continuously tracked holdings")
@@ -176,10 +246,7 @@ async def list_holdings(user=Depends(current_user), pool=Depends(get_pool)):
     async with pool.acquire() as conn:
         pid = await ensure_portfolio(conn, user["id"])
         rows = await enriched_holdings(conn, pid, active_only=False)
-    total_value = sum(float(r.get("current_value") or 0) for r in rows if r["status"] == "ACTIVE")
-    for r in rows:
-        if r["status"] == "ACTIVE":
-            r["portfolio_contribution"] = (float(r.get("current_value") or 0) / total_value * 100) if total_value else 0
+    apply_recommendations(rows)
     return {"data": rows}
 
 
@@ -310,3 +377,37 @@ async def holding_trendline(holding_id: int, user=Depends(current_user), pool=De
             h["symbol"], h["buy_date"], end_date,
         )
     return {"symbol": h["symbol"], "start_date": h["buy_date"], "end_date": end_date, "data": [as_dict(r) for r in rows]}
+
+
+@router.get("/holdings/sparklines", summary="Compact price sparklines for every active holding (one batched call)")
+async def holdings_sparklines(user=Depends(current_user), pool=Depends(get_pool)):
+    """Powers the inline mini-chart next to each holding in the table, the way
+    Groww/Kite show a tiny trend line per position without opening a modal.
+    Returns the last ~30 trading days of closes per symbol in one round trip
+    instead of one request per row.
+    """
+    async with pool.acquire() as conn:
+        pid = await ensure_portfolio(conn, user["id"])
+        symbols = [r["symbol"] for r in await conn.fetch(
+            "select distinct symbol from holdings where portfolio_id = $1 and status = 'ACTIVE'", pid
+        )]
+        if not symbols:
+            return {"data": {}}
+        rows = await conn.fetch(
+            """
+            select symbol, trade_date, close_price
+            from (
+                select symbol, trade_date, close_price,
+                       row_number() over (partition by symbol order by trade_date desc) as rn
+                from price_history
+                where symbol = any($1)
+            ) ranked
+            where rn <= 30
+            order by symbol, trade_date
+            """,
+            symbols,
+        )
+    by_symbol: dict[str, list] = {}
+    for r in rows:
+        by_symbol.setdefault(r["symbol"], []).append({"trade_date": r["trade_date"], "close_price": num(r["close_price"])})
+    return {"data": by_symbol}
