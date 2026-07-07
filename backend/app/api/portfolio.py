@@ -8,14 +8,33 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.api.deps import current_user
 from app.core.database import get_pool
-from app.models.portfolio import HoldingCreate, HoldingSold, HoldingUpdate, PortfolioCreate
+from app.models.portfolio import (
+    HoldingBuyMore,
+    HoldingCreate,
+    HoldingSell,
+    HoldingUpdate,
+    PortfolioCreate,
+)
 from app.services import ai_analysis
+from app.services import portfolio_history as ph
 from app.services import portfolio_intelligence as pi
 from app.services.ai_analysis import AIAnalysisError
 from app.services.portfolio_analytics import compute_peak_drawdowns, concentration_risk, portfolio_xirr
 from app.services.portfolio_import import parse_portfolio_file
 
 router = APIRouter()
+
+# Statuses that still represent live market exposure (as opposed to SOLD =
+# fully exited, or ARCHIVED = soft-deleted). Position Score / Portfolio
+# Health / AI Advisor / Morning Brief all operate on these.
+OPEN_STATUSES = ("ACTIVE", "PARTIAL")
+
+STATUS_LABELS = {
+    "ACTIVE": "Active",
+    "PARTIAL": "Partial Exit",
+    "SOLD": "Fully Exited",
+    "ARCHIVED": "Archived",
+}
 
 
 def num(value):
@@ -47,22 +66,27 @@ async def assert_symbol(conn, symbol: str):
         raise HTTPException(422, f"Unknown symbol: {symbol}")
 
 
-@router.get("", summary="List user portfolios")
-async def list_portfolios(user=Depends(current_user), pool=Depends(get_pool)):
-    async with pool.acquire() as conn:
-        await ensure_portfolio(conn, user["id"])
-        rows = await conn.fetch("select id, portfolio_name, created_at, updated_at from portfolios where user_id = $1 order by created_at", user["id"])
-    return {"data": [as_dict(r) for r in rows]}
+async def get_holding_or_404(conn, holding_id: int, portfolio_id: int):
+    row = await conn.fetchrow(
+        "select * from holdings where id = $1 and portfolio_id = $2 and not is_archived",
+        holding_id, portfolio_id,
+    )
+    if not row:
+        raise HTTPException(404, "Holding not found")
+    return row
 
 
-@router.post("", summary="Create portfolio")
-async def create_portfolio(payload: PortfolioCreate, user=Depends(current_user), pool=Depends(get_pool)):
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            "insert into portfolios (user_id, portfolio_name, broker, is_active) values ($1, $2, 'manual', true) returning id, portfolio_name, created_at, updated_at",
-            user["id"], payload.portfolio_name.strip(),
-        )
-    return as_dict(row)
+async def has_sell_history(conn, holding_id: int) -> bool:
+    return bool(await conn.fetchval(
+        "select true from holding_transactions where holding_id = $1 and txn_type = 'SELL' limit 1",
+        holding_id,
+    ))
+
+
+def determine_status(quantity: Decimal, had_sell_history: bool) -> str:
+    if quantity <= 0:
+        return "SOLD"
+    return "PARTIAL" if had_sell_history else "ACTIVE"
 
 
 async def fetch_screener_candidates(conn, trade_date, exclude_symbols: set[str], min_momentum: float = 55, limit: int = 200):
@@ -84,12 +108,31 @@ async def fetch_screener_candidates(conn, trade_date, exclude_symbols: set[str],
     return [as_dict(r) for r in rows if r["symbol"] not in exclude_symbols]
 
 
+@router.get("", summary="List user portfolios")
+async def list_portfolios(user=Depends(current_user), pool=Depends(get_pool)):
+    async with pool.acquire() as conn:
+        await ensure_portfolio(conn, user["id"])
+        rows = await conn.fetch("select id, portfolio_name, created_at, updated_at from portfolios where user_id = $1 order by created_at", user["id"])
+    return {"data": [as_dict(r) for r in rows]}
+
+
+@router.post("", summary="Create portfolio")
+async def create_portfolio(payload: PortfolioCreate, user=Depends(current_user), pool=Depends(get_pool)):
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "insert into portfolios (user_id, portfolio_name, broker, is_active) values ($1, $2, 'manual', true) returning id, portfolio_name, created_at, updated_at",
+            user["id"], payload.portfolio_name.strip(),
+        )
+    return as_dict(row)
+
+
 @router.get("/summary", summary="Portfolio Intelligence dashboard: health, morning brief, rotation and analytics")
 async def portfolio_summary(user=Depends(current_user), pool=Depends(get_pool)):
     async with pool.acquire() as conn:
         pid = await ensure_portfolio(conn, user["id"])
-        rows = await enriched_holdings(conn, pid, active_only=False)
-        active = [r for r in rows if r["status"] == "ACTIVE"]
+        rows = await enriched_holdings(conn, pid, scope="all")
+        active = [r for r in rows if r["status"] in OPEN_STATUSES]
+        sold = [r for r in rows if r["status"] == "SOLD"]
 
         trade_date_row = await conn.fetchrow("select trade_date from v_latest_date")
         trade_date = trade_date_row["trade_date"] if trade_date_row else None
@@ -128,10 +171,16 @@ async def portfolio_summary(user=Depends(current_user), pool=Depends(get_pool)):
 
             morning_brief = pi.generate_morning_brief(active, health, previous_health, rotation)
 
-    winning = [r for r in active if float(r["profit_loss"] or 0) > 0]
-    losing = [r for r in active if float(r["profit_loss"] or 0) < 0]
+    winning = [r for r in active if float(r["unrealized_pnl"] or 0) > 0]
+    losing = [r for r in active if float(r["unrealized_pnl"] or 0) < 0]
     total_investment = sum(float(r["investment_amount"] or 0) for r in active)
     current_value = sum(float(r["current_value"] or 0) for r in active)
+    unrealized_pnl = current_value - total_investment
+    realized_pnl = sum(float(r.get("realized_pnl") or 0) for r in rows)  # includes partial exits + fully exited
+    today_pnl = sum(float(r.get("today_change") or 0) for r in active)
+    today_base = current_value - today_pnl  # yesterday's equivalent value of today's open holdings
+    today_return_pct = (today_pnl / today_base * 100) if today_base else 0
+
     sector_totals = {}
     for r in active:
         sector = r.get("sector") or "Unclassified"
@@ -151,14 +200,22 @@ async def portfolio_summary(user=Depends(current_user), pool=Depends(get_pool)):
         "capital_rotation": rotation,
         "opportunity_queue": opportunities,
         "cards": {
+            # Part 5 — Portfolio Summary Cards
             "total_investment": total_investment,
             "current_value": current_value,
-            "profit_loss": current_value - total_investment,
+            "unrealized_pnl": unrealized_pnl,
+            "realized_pnl": realized_pnl,
             "return_pct": ((current_value - total_investment) / total_investment * 100) if total_investment else 0,
-            "xirr_pct": portfolio_xirr(active),
             "number_of_holdings": len(active),
+            "xirr_pct": portfolio_xirr(active),
             "winning_holdings": len(winning),
             "losing_holdings": len(losing),
+            "fully_exited_holdings": len(sold),
+            # Part 6 — Today's Performance
+            "today_pnl": today_pnl,
+            "today_return_pct": today_return_pct,
+            # Back-compat aliases for older frontend builds
+            "profit_loss": unrealized_pnl,
         },
         "risk": concentration,
         "tax_estimate": None,
@@ -197,8 +254,38 @@ async def apply_peak_drawdowns(conn, active: list[dict]) -> None:
         h["drawdown_from_peak_pct"] = dd["drawdown_from_peak_pct"] if dd else None
 
 
-async def enriched_holdings(conn, portfolio_id: int, active_only: bool = True):
-    status_filter = "and h.status = 'ACTIVE'" if active_only else ""
+def _apply_today_change(d: dict) -> None:
+    """today_change: rupee P/L attributable to today's move alone, derived
+    from chg_1d (%) which the momentum engine already computes. prev_close
+    is backed out algebraically rather than requiring a second price row."""
+    chg_1d = d.get("chg_1d")
+    qty = float(d.get("quantity") or 0)
+    current_price = d.get("current_price")
+    if chg_1d is None or current_price is None or qty <= 0:
+        d["today_change"] = None
+        d["today_change_pct"] = None
+        return
+    chg_1d = float(chg_1d)
+    denom = 100 + chg_1d
+    if abs(denom) < 1e-9:
+        d["today_change"] = None
+        d["today_change_pct"] = None
+        return
+    prev_close = float(current_price) / (denom / 100)
+    d["today_change"] = round(qty * (float(current_price) - prev_close), 2)
+    d["today_change_pct"] = round(chg_1d, 2)
+
+
+async def enriched_holdings(conn, portfolio_id: int, scope: str = "open"):
+    """scope: 'open' (ACTIVE/PARTIAL only), 'sold' (fully exited history),
+    or 'all' (open + sold, still excluding archived rows)."""
+    if scope == "open":
+        status_filter = "and h.status in ('ACTIVE','PARTIAL')"
+    elif scope == "sold":
+        status_filter = "and h.status = 'SOLD'"
+    else:
+        status_filter = "and h.status in ('ACTIVE','PARTIAL','SOLD')"
+
     rows = await conn.fetch(
         f"""
         with latest as (select trade_date from v_latest_date)
@@ -209,22 +296,35 @@ async def enriched_holdings(conn, portfolio_id: int, active_only: bool = True):
                tr.pct_from_high, tr.near_52w_high, tr.rank_52w, tr.high_52w,
                tr.ema_signal, tr.macd_hist, tr.volume, tr.total_trades,
                greatest(coalesce(h.sell_date, current_date) - h.buy_date, 0) as days_held,
-               (h.quantity * h.avg_buy_price) as investment_amount,
-               case when h.status = 'ACTIVE' then (h.quantity * tr.close_price) else (h.quantity * h.sell_price) end as current_value,
-               case when h.status = 'ACTIVE' then (h.quantity * (tr.close_price - h.avg_buy_price)) else (h.quantity * (h.sell_price - h.avg_buy_price)) end as profit_loss,
-               case when h.avg_buy_price > 0 then ((case when h.status = 'ACTIVE' then coalesce(tr.close_price, h.avg_buy_price) else h.sell_price end - h.avg_buy_price) / h.avg_buy_price * 100) end as gain_pct
+               case when h.status = 'SOLD' then (h.total_bought_quantity * h.avg_buy_price)
+                    else (h.quantity * h.avg_buy_price) end as investment_amount,
+               case when h.status in ('ACTIVE','PARTIAL') then (h.quantity * tr.close_price) else 0 end as current_value,
+               case when h.status in ('ACTIVE','PARTIAL') then (h.quantity * (tr.close_price - h.avg_buy_price)) else 0 end as unrealized_pnl,
+               case
+                   when h.status in ('ACTIVE','PARTIAL') and h.avg_buy_price > 0
+                       then ((coalesce(tr.close_price, h.avg_buy_price) - h.avg_buy_price) / h.avg_buy_price * 100)
+                   when h.status = 'SOLD' and h.avg_buy_price > 0 and h.total_bought_quantity > 0
+                       then (h.realized_pnl / (h.total_bought_quantity * h.avg_buy_price) * 100)
+               end as gain_pct
         from holdings h
         join symbols s on s.symbol = h.symbol
         left join latest l on true
         left join trend_results tr on tr.symbol = h.symbol and tr.trade_date = l.trade_date
-        where h.portfolio_id = $1 {status_filter}
+        where h.portfolio_id = $1 and not h.is_archived {status_filter}
         order by h.status, h.created_at desc
         """,
         portfolio_id,
     )
     result = [as_dict(row) for row in rows]
 
-    active = [d for d in result if d["status"] == "ACTIVE"]
+    # Back-compat: several places (frontend + this module's own /summary math)
+    # still read "profit_loss" as a generic P/L column — unrealized for open
+    # positions, realized for fully-exited ones.
+    for d in result:
+        d["status_label"] = STATUS_LABELS.get(d["status"], d["status"])
+        d["profit_loss"] = d["unrealized_pnl"] if d["status"] in OPEN_STATUSES else d.get("realized_pnl")
+
+    active = [d for d in result if d["status"] in OPEN_STATUSES]
     if active:
         trade_date_row = await conn.fetchrow("select trade_date from v_latest_date")
         trade_date = trade_date_row["trade_date"] if trade_date_row else None
@@ -247,6 +347,7 @@ async def enriched_holdings(conn, portfolio_id: int, active_only: bool = True):
                 d["annualized_return"] = ((1 + d["gain_pct"] / 100) ** (365 / max(d["days_held"], 1)) - 1) * 100
             else:
                 d["annualized_return"] = None
+            _apply_today_change(d)
 
         await apply_peak_drawdowns(conn, active)
 
@@ -257,10 +358,10 @@ async def enriched_holdings(conn, portfolio_id: int, active_only: bool = True):
 async def list_holdings(user=Depends(current_user), pool=Depends(get_pool)):
     async with pool.acquire() as conn:
         pid = await ensure_portfolio(conn, user["id"])
-        rows = await enriched_holdings(conn, pid, active_only=False)
-    total_value = sum(float(r.get("current_value") or 0) for r in rows if r["status"] == "ACTIVE")
+        rows = await enriched_holdings(conn, pid, scope="all")
+    total_value = sum(float(r.get("current_value") or 0) for r in rows if r["status"] in OPEN_STATUSES)
     for r in rows:
-        if r["status"] == "ACTIVE":
+        if r["status"] in OPEN_STATUSES:
             r["portfolio_contribution"] = (float(r.get("current_value") or 0) / total_value * 100) if total_value else 0
     return {"data": rows}
 
@@ -270,72 +371,261 @@ async def add_holding(payload: HoldingCreate, user=Depends(current_user), pool=D
     async with pool.acquire() as conn:
         pid = await ensure_portfolio(conn, user["id"])
         await assert_symbol(conn, payload.symbol)
-        duplicate = await conn.fetchval("select true from holdings where portfolio_id = $1 and symbol = $2 and status = 'ACTIVE'", pid, payload.symbol)
-        if duplicate:
-            raise HTTPException(409, "This symbol already exists as an active holding. Edit the existing holding instead.")
-        row = await conn.fetchrow(
-            """
-            insert into holdings (portfolio_id, user_id, symbol, quantity, avg_buy_price, buy_date, buy_date_confirmed)
-            values ($1, $2, $3, $4, $5, $6, true) returning *
-            """,
-            pid, user["id"], payload.symbol, payload.quantity, payload.avg_buy_price, payload.buy_date,
+        duplicate = await conn.fetchval(
+            "select true from holdings where portfolio_id = $1 and symbol = $2 and status in ('ACTIVE','PARTIAL') and not is_archived",
+            pid, payload.symbol,
         )
+        if duplicate:
+            raise HTTPException(409, "This symbol already exists as an open holding. Use Buy More on the existing row instead.")
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """
+                insert into holdings (portfolio_id, user_id, symbol, quantity, avg_buy_price, buy_date,
+                                       buy_date_confirmed, total_bought_quantity)
+                values ($1, $2, $3, $4, $5, $6, true, $4) returning *
+                """,
+                pid, user["id"], payload.symbol, payload.quantity, payload.avg_buy_price, payload.buy_date,
+            )
+            await conn.execute(
+                """
+                insert into holding_transactions (holding_id, portfolio_id, symbol, txn_type, quantity, price, txn_date, charges, notes)
+                values ($1, $2, $3, 'BUY', $4, $5, $6, 0, 'Initial purchase')
+                """,
+                row["id"], pid, payload.symbol, payload.quantity, payload.avg_buy_price, payload.buy_date,
+            )
     d = as_dict(row)
     d["requires_confirmation"] = not d.pop("buy_date_confirmed")
+    d["status_label"] = STATUS_LABELS.get(d["status"], d["status"])
     return d
 
 
-@router.patch("/holdings/{holding_id}", summary="Edit holding")
+@router.patch("/holdings/{holding_id}", summary="Edit holding (buy date / confirmation, or correct a still-untouched single-lot buy)")
 async def edit_holding(holding_id: int, payload: HoldingUpdate, user=Depends(current_user), pool=Depends(get_pool)):
     async with pool.acquire() as conn:
         pid = await ensure_portfolio(conn, user["id"])
-        current = await conn.fetchrow("select * from holdings where id = $1 and portfolio_id = $2", holding_id, pid)
-        if not current:
-            raise HTTPException(404, "Holding not found")
+        current = await get_holding_or_404(conn, holding_id, pid)
+
+        if payload.quantity is not None or payload.avg_buy_price is not None:
+            txn_count = await conn.fetchval(
+                "select count(*) from holding_transactions where holding_id = $1", holding_id
+            )
+            sold_any = await has_sell_history(conn, holding_id)
+            if txn_count != 1 or sold_any:
+                raise HTTPException(
+                    409,
+                    "Quantity/average buy price can no longer be edited directly once this holding has "
+                    "Buy More or Sell Position activity. Use Buy More or Sell Position instead so realized "
+                    "P/L and the transaction ledger stay accurate.",
+                )
+
         confirmed_value = None if payload.requires_confirmation is None else (not payload.requires_confirmation)
-        row = await conn.fetchrow(
-            """
-            update holdings set
-                quantity = coalesce($3, quantity),
-                avg_buy_price = coalesce($4, avg_buy_price),
-                buy_date = coalesce($5, buy_date),
-                buy_date_confirmed = coalesce($6, buy_date_confirmed),
-                updated_at = now()
-            where id = $1 and portfolio_id = $2
-            returning *
-            """,
-            holding_id, pid, payload.quantity, payload.avg_buy_price, payload.buy_date, confirmed_value,
-        )
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                """
+                update holdings set
+                    quantity = coalesce($3, quantity),
+                    avg_buy_price = coalesce($4, avg_buy_price),
+                    total_bought_quantity = coalesce($3, total_bought_quantity),
+                    buy_date = coalesce($5, buy_date),
+                    buy_date_confirmed = coalesce($6, buy_date_confirmed),
+                    updated_at = now()
+                where id = $1 and portfolio_id = $2
+                returning *
+                """,
+                holding_id, pid, payload.quantity, payload.avg_buy_price, payload.buy_date, confirmed_value,
+            )
+            if payload.quantity is not None or payload.avg_buy_price is not None:
+                await conn.execute(
+                    """
+                    update holding_transactions set quantity = coalesce($2, quantity), price = coalesce($3, price),
+                           txn_date = coalesce($4, txn_date)
+                    where holding_id = $1 and txn_type = 'BUY'
+                    """,
+                    holding_id, payload.quantity, payload.avg_buy_price, payload.buy_date,
+                )
     d = as_dict(row)
     d["requires_confirmation"] = not d.pop("buy_date_confirmed")
+    d["status_label"] = STATUS_LABELS.get(d["status"], d["status"])
     return d
 
 
-@router.delete("/holdings/{holding_id}", summary="Delete holding")
+@router.post("/holdings/{holding_id}/buy", summary="Buy More — additional purchase of an existing (or previously fully-exited) holding")
+async def buy_more(holding_id: int, payload: HoldingBuyMore, user=Depends(current_user), pool=Depends(get_pool)):
+    async with pool.acquire() as conn:
+        pid = await ensure_portfolio(conn, user["id"])
+        async with conn.transaction():
+            current = await conn.fetchrow(
+                "select * from holdings where id = $1 and portfolio_id = $2 and not is_archived for update",
+                holding_id, pid,
+            )
+            if not current:
+                raise HTTPException(404, "Holding not found. If it was deleted, restore it first.")
+
+            old_qty = Decimal(current["quantity"])
+            old_avg = Decimal(current["avg_buy_price"])
+            new_qty = old_qty + payload.quantity
+            new_avg = ((old_qty * old_avg) + (payload.quantity * payload.price)) / new_qty
+            sold_any = await has_sell_history(conn, holding_id)
+            new_status = determine_status(new_qty, sold_any)
+            new_total_bought = Decimal(current["total_bought_quantity"]) + payload.quantity
+            new_buy_date = min(current["buy_date"], payload.buy_date) if current["buy_date"] else payload.buy_date
+
+            row = await conn.fetchrow(
+                """
+                update holdings set
+                    quantity = $3,
+                    avg_buy_price = $4,
+                    total_bought_quantity = $5,
+                    status = $6,
+                    buy_date = $7,
+                    updated_at = now()
+                where id = $1 and portfolio_id = $2
+                returning *
+                """,
+                holding_id, pid, new_qty, new_avg, new_total_bought, new_status, new_buy_date,
+            )
+            await conn.execute(
+                """
+                insert into holding_transactions (holding_id, portfolio_id, symbol, txn_type, quantity, price, txn_date, charges, notes)
+                values ($1, $2, $3, 'BUY', $4, $5, $6, $7, $8)
+                """,
+                holding_id, pid, current["symbol"], payload.quantity, payload.price, payload.buy_date,
+                payload.charges, payload.notes,
+            )
+    d = as_dict(row)
+    d["status_label"] = STATUS_LABELS.get(d["status"], d["status"])
+    return d
+
+
+@router.post("/holdings/{holding_id}/sell", summary="Sell Position — partial or full sale of an existing holding")
+async def sell_position(holding_id: int, payload: HoldingSell, user=Depends(current_user), pool=Depends(get_pool)):
+    async with pool.acquire() as conn:
+        pid = await ensure_portfolio(conn, user["id"])
+        async with conn.transaction():
+            current = await conn.fetchrow(
+                "select * from holdings where id = $1 and portfolio_id = $2 and not is_archived for update",
+                holding_id, pid,
+            )
+            if not current:
+                raise HTTPException(404, "Holding not found")
+            if current["status"] not in OPEN_STATUSES:
+                raise HTTPException(409, "This holding has no open quantity left to sell.")
+
+            held_qty = Decimal(current["quantity"])
+            if payload.quantity > held_qty:
+                raise HTTPException(
+                    400,
+                    f"Cannot sell {payload.quantity} shares — only {held_qty} are currently held.",
+                )
+
+            avg_buy_price = Decimal(current["avg_buy_price"])  # unchanged — Part 2 of the spec
+            realized_pnl_txn = payload.quantity * (payload.sell_price - avg_buy_price) - payload.charges
+            remaining_qty = held_qty - payload.quantity
+            new_status = "SOLD" if remaining_qty <= 0 else "PARTIAL"
+            new_realized_total = Decimal(current["realized_pnl"]) + realized_pnl_txn
+
+            row = await conn.fetchrow(
+                """
+                update holdings set
+                    quantity = $3,
+                    status = $4,
+                    realized_pnl = $5,
+                    sell_date = $6,
+                    sell_price = $7,
+                    updated_at = now()
+                where id = $1 and portfolio_id = $2
+                returning *
+                """,
+                holding_id, pid, remaining_qty, new_status, new_realized_total, payload.sell_date, payload.sell_price,
+            )
+            await conn.execute(
+                """
+                insert into holding_transactions (holding_id, portfolio_id, symbol, txn_type, quantity, price, txn_date, charges, realized_pnl, notes)
+                values ($1, $2, $3, 'SELL', $4, $5, $6, $7, $8, $9)
+                """,
+                holding_id, pid, current["symbol"], payload.quantity, payload.sell_price, payload.sell_date,
+                payload.charges, realized_pnl_txn, payload.notes,
+            )
+    d = as_dict(row)
+    d["status_label"] = STATUS_LABELS.get(d["status"], d["status"])
+    d["realized_pnl_this_sale"] = num(realized_pnl_txn)
+    return d
+
+
+@router.delete("/holdings/{holding_id}", summary="Archive (soft-delete) a holding")
 async def delete_holding(holding_id: int, user=Depends(current_user), pool=Depends(get_pool)):
     async with pool.acquire() as conn:
         pid = await ensure_portfolio(conn, user["id"])
-        deleted = await conn.fetchval("delete from holdings where id = $1 and portfolio_id = $2 returning id", holding_id, pid)
-    if not deleted:
+        archived = await conn.fetchval(
+            """
+            update holdings set is_archived = true, archived_at = now(), updated_at = now()
+            where id = $1 and portfolio_id = $2 and not is_archived
+            returning id
+            """,
+            holding_id, pid,
+        )
+    if not archived:
         raise HTTPException(404, "Holding not found")
-    return {"message": "Holding deleted"}
+    return {"message": "Holding archived. It no longer appears in your portfolio, but its history and transactions are preserved and it can be restored.", "archived": True}
 
 
-@router.post("/holdings/{holding_id}/sell", summary="Mark holding as sold")
-async def mark_sold(holding_id: int, payload: HoldingSold, user=Depends(current_user), pool=Depends(get_pool)):
+@router.post("/holdings/{holding_id}/restore", summary="Restore a previously archived holding")
+async def restore_holding(holding_id: int, user=Depends(current_user), pool=Depends(get_pool)):
     async with pool.acquire() as conn:
         pid = await ensure_portfolio(conn, user["id"])
         row = await conn.fetchrow(
             """
-            update holdings set status = 'SOLD', sell_date = $3, sell_price = $4, updated_at = now()
-            where id = $1 and portfolio_id = $2 and status = 'ACTIVE'
+            update holdings set is_archived = false, archived_at = null, updated_at = now()
+            where id = $1 and portfolio_id = $2 and is_archived
             returning *
             """,
-            holding_id, pid, payload.sell_date, payload.sell_price,
+            holding_id, pid,
         )
     if not row:
-        raise HTTPException(404, "Active holding not found")
-    return as_dict(row)
+        raise HTTPException(404, "Archived holding not found")
+    d = as_dict(row)
+    d["status_label"] = STATUS_LABELS.get(d["status"], d["status"])
+    return d
+
+
+@router.get("/holdings/{holding_id}/transactions", summary="Buy/Sell transaction ledger for a holding")
+async def holding_transactions(holding_id: int, user=Depends(current_user), pool=Depends(get_pool)):
+    async with pool.acquire() as conn:
+        pid = await ensure_portfolio(conn, user["id"])
+        holding = await conn.fetchrow("select id, symbol from holdings where id = $1 and portfolio_id = $2", holding_id, pid)
+        if not holding:
+            raise HTTPException(404, "Holding not found")
+        rows = await conn.fetch(
+            """
+            select id, txn_type, quantity, price, txn_date, charges, realized_pnl, notes, created_at
+            from holding_transactions
+            where holding_id = $1
+            order by txn_date desc, id desc
+            """,
+            holding_id,
+        )
+    data = [as_dict(r) for r in rows]
+    total_bought = sum(r["quantity"] for r in data if r["txn_type"] == "BUY")
+    total_sold = sum(r["quantity"] for r in data if r["txn_type"] == "SELL")
+    total_realized = sum(r["realized_pnl"] or 0 for r in data if r["txn_type"] == "SELL")
+    return {
+        "symbol": holding["symbol"],
+        "data": data,
+        "summary": {"total_bought": total_bought, "total_sold": total_sold, "total_realized_pnl": total_realized},
+    }
+
+
+@router.get("/performance-history", summary="Portfolio value over time (1M/3M/6M/1Y/ALL)")
+async def performance_history(range: str = "3M", user=Depends(current_user), pool=Depends(get_pool)):
+    range_key = range.upper()
+    if range_key not in ph.RANGE_DAYS:
+        raise HTTPException(422, "range must be one of: 1M, 3M, 6M, 1Y, ALL")
+    async with pool.acquire() as conn:
+        pid = await ensure_portfolio(conn, user["id"])
+        trade_date_row = await conn.fetchrow("select trade_date from v_latest_date")
+        today = trade_date_row["trade_date"] if trade_date_row else date.today()
+        series = await ph.get_performance_history(conn, pid, range_key, today)
+    return {"range": range_key, "data": series}
 
 
 @router.post("/import", summary="Import portfolio holdings from broker CSV/XLS/XLSX")
@@ -357,28 +647,40 @@ async def import_holdings(file: UploadFile = File(...), user=Depends(current_use
             if symbol not in valid_symbols:
                 skipped.append({"symbol": item.symbol, "reason": "Unknown symbol", "row": item.source_row})
                 continue
-            exists = await conn.fetchval("select true from holdings where portfolio_id = $1 and symbol = $2 and status = 'ACTIVE'", pid, symbol)
-            if exists:
-                skipped.append({"symbol": symbol, "reason": "Duplicate active holding", "row": item.source_row})
-                continue
-            row = await conn.fetchrow(
-                """
-                insert into holdings (portfolio_id, user_id, symbol, quantity, avg_buy_price, buy_date, buy_date_confirmed, import_source)
-                values ($1, $2, $3, $4, $5, $6, $7, $8) returning *
-                """,
-                pid, user["id"], symbol, item.quantity, item.avg_buy_price, item.buy_date, not item.requires_confirmation, file.filename,
+            exists = await conn.fetchval(
+                "select true from holdings where portfolio_id = $1 and symbol = $2 and status in ('ACTIVE','PARTIAL') and not is_archived",
+                pid, symbol,
             )
+            if exists:
+                skipped.append({"symbol": symbol, "reason": "Duplicate open holding — use Buy More on the existing row instead", "row": item.source_row})
+                continue
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    """
+                    insert into holdings (portfolio_id, user_id, symbol, quantity, avg_buy_price, buy_date,
+                                           buy_date_confirmed, import_source, total_bought_quantity)
+                    values ($1, $2, $3, $4, $5, $6, $7, $8, $4) returning *
+                    """,
+                    pid, user["id"], symbol, item.quantity, item.avg_buy_price, item.buy_date, not item.requires_confirmation, file.filename,
+                )
+                await conn.execute(
+                    """
+                    insert into holding_transactions (holding_id, portfolio_id, symbol, txn_type, quantity, price, txn_date, charges, notes)
+                    values ($1, $2, $3, 'BUY', $4, $5, $6, 0, $7)
+                    """,
+                    row["id"], pid, symbol, item.quantity, item.avg_buy_price, item.buy_date, f"Imported from {file.filename}",
+                )
             d = as_dict(row)
             d["requires_confirmation"] = not d.pop("buy_date_confirmed")
             imported.append(d)
     return {"imported": imported, "skipped": skipped, "warnings": warnings, "requires_confirmation": [r for r in imported if r.get("requires_confirmation")]}
 
 
-@router.post("/ai-advisor", summary="AI-powered Hold/Trim/Add More/Exit All verdicts for active holdings (Gemini)")
+@router.post("/ai-advisor", summary="AI-powered Hold/Trim/Add More/Exit All verdicts for open holdings (Gemini)")
 async def ai_advisor(user=Depends(current_user), pool=Depends(get_pool)):
     async with pool.acquire() as conn:
         pid = await ensure_portfolio(conn, user["id"])
-        active = await enriched_holdings(conn, pid, active_only=True)
+        active = await enriched_holdings(conn, pid, scope="open")
 
     if not active:
         return {"data": []}
@@ -398,6 +700,7 @@ async def ai_advisor(user=Depends(current_user), pool=Depends(get_pool)):
             "sector": h.get("sector"),
             "gain_pct": h.get("gain_pct"),
             "position_score": h.get("position_score"),
+            "status_label": h.get("status_label"),
             "action": v.get("action", "HOLD"),
             "reasoning": v.get("reasoning") or "No reasoning returned.",
             "confidence": v.get("confidence", 50),

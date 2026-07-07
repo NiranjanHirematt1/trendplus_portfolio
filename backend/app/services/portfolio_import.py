@@ -9,11 +9,50 @@ from typing import Any
 
 import pandas as pd
 
-SYMBOL_KEYS = ("symbol", "stock name", "ticker", "scrip", "security", "instrument", "stock")
-QTY_KEYS = ("quantity", "quantity available", "qty", "holding qty", "net qty", "available qty")
-PRICE_KEYS = ("average buy price", "avg buy price", "average price", "avg price", "buy price", "cost price")
-DATE_KEYS = ("buy date", "purchase date", "acquisition date", "trade date", "date")
-ISIN_KEYS = ("isin",)
+SYMBOL_KEYS = (
+    "symbol",
+    "stock name",
+    "ticker",
+    "scrip",
+    "security",
+    "instrument",
+    "stock",
+)
+
+QTY_KEYS = (
+    "quantity",
+    "quantity available",
+    "qty",
+    "holding qty",
+    "net qty",
+    "available qty",
+    "holding quantity",
+)
+
+PRICE_KEYS = (
+    "average buy price",
+    "average price",
+    "avg buy price",
+    "avg price",
+    "avg cost",
+    "cost",
+    "cost basis",
+    "buy price",
+    "cost price",
+    "acquisition cost",
+)
+
+DATE_KEYS = (
+    "buy date",
+    "purchase date",
+    "acquisition date",
+    "trade date",
+    "date",
+)
+
+ISIN_KEYS = (
+    "isin",
+)
 HEADER_SCAN_LIMIT = 60  # broker exports often have a metadata/summary preamble before the real table
 
 
@@ -195,16 +234,32 @@ def parse_portfolio_file(filename: str, content: bytes) -> tuple[list[ImportRow]
     warnings: list[str] = []
     for idx, row in df.iterrows():
         row_num = int(idx) + 2
+
         raw_symbol = row.get(symbol_col)
+
         if pd.isna(raw_symbol) or str(raw_symbol).strip() == "":
             continue
+
         symbol = re.sub(r"[^A-Za-z0-9&\-]", "", str(raw_symbol).strip().upper())
+
+        # Skip summary/footer rows from broker exports
+        if symbol in (
+             "",
+            "TOTAL",
+            "GRANDTOTAL",
+            "TOTALS",
+            "CASH",
+            "MARGIN",
+        ):
+            continue
+
         try:
             isin = None
             if isin_col:
                 raw_isin = row.get(isin_col)
                 if pd.notna(raw_isin) and str(raw_isin).strip():
                     isin = str(raw_isin).strip().upper()
+
             quantity = _decimal(row.get(qty_col), "quantity", row_num)
             price = _decimal(row.get(price_col), "average buy price", row_num)
         except ValueError as exc:

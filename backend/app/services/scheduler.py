@@ -30,6 +30,7 @@ import datetime
 
 from app.services.downloader import download_bhav_bytes
 from app.services.engine_db  import run_engine
+from app.services import portfolio_history
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,17 @@ async def run_daily_pipeline(pool, trigger: str = "scheduled") -> dict:
             "[scheduler] Run #%d SUCCESS — %d symbols in %.1fs",
             run_id, summary["symbols_processed"], summary["duration_secs"],
         )
+
+        # ── 4b. Portfolio Performance History snapshots (Part 9) ───────
+        # Non-fatal: a snapshotting failure must never fail the market-data
+        # pipeline. Missed days are transparently reconstructed on demand
+        # by GET /api/portfolio/performance-history.
+        try:
+            snapped = await portfolio_history.record_daily_snapshots(pool, today)
+            logger.info("[scheduler] Portfolio snapshots recorded for %d portfolios (%s)", snapped, today)
+        except Exception:
+            logger.exception("[scheduler] Portfolio snapshot recording failed (non-fatal)")
+
         return summary
 
     except Exception as exc:
