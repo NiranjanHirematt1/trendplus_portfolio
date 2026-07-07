@@ -6,7 +6,7 @@
 <title>TrendPlus — Portfolio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -133,9 +133,43 @@ tr:last-child td{border-bottom:none}
 .sym-link:hover{text-decoration:underline}
 
 .status-pill{display:inline-flex;border:1px solid var(--border2);border-radius:999px;padding:2px 8px;font-size:10px;font-weight:800}
-.status-active{color:var(--green);background:var(--green-bg)}
+.status-active{color:var(--green);background:var(--green-bg);border-color:transparent}
+.status-partial{color:var(--amber);background:var(--amber-bg);border-color:transparent}
 .status-sold{color:var(--t2);background:var(--bg2)}
 .status-missing{color:var(--amber);background:var(--amber-bg)}
+
+/* -- Today's Performance strip -- */
+.today-strip{display:flex;align-items:center;gap:22px;background:var(--bg1);border:1px solid var(--border);border-radius:var(--r2);padding:14px 18px;margin-bottom:16px;flex-wrap:wrap}
+.today-strip .ts-label{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;font-weight:700}
+.today-strip .ts-value{font-family:var(--font-mono);font-weight:700;font-size:20px}
+.today-strip .ts-sub{font-size:11px;color:var(--t3)}
+
+/* -- Modals: Sell / Buy More / Delete confirm -- */
+.sell-form,.buy-form{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sell-form .field-full,.buy-form .field-full{grid-column:1/-1}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.holding-ctx{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--t2)}
+.holding-ctx b{color:var(--t0);font-family:var(--font-mono)}
+.sell-preview{margin-top:4px;font-size:12px;color:var(--t2);background:var(--bg2);border-radius:var(--r);padding:10px 12px;border:1px solid var(--border2)}
+.sell-preview b{font-family:var(--font-mono)}
+.danger-modal .modal-head{border-bottom-color:var(--red)}
+.danger-warning{display:flex;gap:10px;align-items:flex-start;background:var(--red-bg);border:1px solid rgba(239,68,68,.35);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:var(--t1);line-height:1.5}
+.danger-warning .dw-icon{font-size:18px;color:var(--red)}
+.btn-danger{background:var(--red-d);color:#fff}
+.btn-danger:hover{background:var(--red)}
+.txn-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.txn-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:8px 12px;font-size:11.5px}
+.txn-type{font-weight:800;font-size:10px;border-radius:4px;padding:2px 7px}
+.txn-BUY{color:var(--green);background:var(--green-bg)}
+.txn-SELL{color:var(--red);background:var(--red-bg)}
+.txn-meta{color:var(--t2)}
+
+/* -- Portfolio Performance History chart -- */
+.range-tabs{display:flex;gap:6px}
+.range-tab{padding:5px 12px;border-radius:999px;font-size:11.5px;font-weight:700;color:var(--t2);border:1px solid var(--border2)}
+.range-tab.active{color:#fff;background:var(--blue-d);border-color:var(--blue-d)}
+.range-tab:hover:not(.active){color:var(--t0);border-color:var(--t2)}
+.history-chart-wrap{padding:16px}
 .table-actions{display:flex;gap:6px;flex-wrap:wrap}
 .link-btn{color:var(--blue);font-size:11.5px;font-weight:700}
 .link-btn:hover{text-decoration:underline}
@@ -341,7 +375,26 @@ tr:last-child td{border-bottom:none}
 
   <div class="brief-panel" id="morningBrief"></div>
 
+  <div class="today-strip" id="todayStrip"></div>
+
   <div class="cards" id="dashboardCards"></div>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div><div class="panel-title">Portfolio Performance History</div><div class="panel-sub">Portfolio value over time, reconstructed from your buy/sell transactions and daily market closes.</div></div>
+      <div class="panel-actions range-tabs" id="rangeTabs">
+        <button class="range-tab" data-range="1M" onclick="setHistoryRange('1M')">1M</button>
+        <button class="range-tab" data-range="3M" onclick="setHistoryRange('3M')">3M</button>
+        <button class="range-tab" data-range="6M" onclick="setHistoryRange('6M')">6M</button>
+        <button class="range-tab" data-range="1Y" onclick="setHistoryRange('1Y')">1Y</button>
+        <button class="range-tab" data-range="ALL" onclick="setHistoryRange('ALL')">All Time</button>
+      </div>
+    </div>
+    <div class="history-chart-wrap">
+      <canvas id="historyCanvas" height="90"></canvas>
+      <div class="pf-note" id="historyChartNote" style="padding-top:10px"></div>
+    </div>
+  </section>
 
   <section class="panel" id="trailingStopSection">
     <div class="panel-head">
@@ -432,6 +485,77 @@ tr:last-child td{border-bottom:none}
       <div class="panel-title" style="font-size:12.5px;margin:16px 0 8px">Price vs Purchase</div>
       <canvas id="trendCanvas" height="200"></canvas>
       <div class="pf-note" id="trendModalNote" style="padding:12px 0 0"></div>
+      <div class="panel-title" style="font-size:12.5px;margin:16px 0 8px">Transaction History</div>
+      <div id="detailTransactions" class="txn-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Sell Position modal -->
+<div class="modal-overlay hidden" id="sellModal">
+  <div class="modal-card" style="max-width:480px">
+    <div class="modal-head">
+      <div><div class="panel-title" id="sellModalTitle">Sell Position</div></div>
+      <span class="modal-close" onclick="closeSellModal()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="holding-ctx" id="sellHoldingCtx"></div>
+      <div class="sell-form">
+        <div class="pf-field"><label>Quantity to Sell</label><input class="finput" id="sellQty" type="number" step="0.0001" oninput="updateSellPreview()"/></div>
+        <div class="pf-field"><label>Sell Price (₹)</label><input class="finput" id="sellPrice" type="number" step="0.01" oninput="updateSellPreview()"/></div>
+        <div class="pf-field"><label>Sell Date</label><input class="finput" id="sellDate" type="date"/></div>
+        <div class="pf-field"><label>Brokerage / Charges (₹, optional)</label><input class="finput" id="sellCharges" type="number" step="0.01" value="0" oninput="updateSellPreview()"/></div>
+        <div class="pf-field field-full"><label>Notes (optional)</label><input class="finput" id="sellNotes" placeholder="e.g. partial profit booking"/></div>
+      </div>
+      <div class="sell-preview" id="sellPreview">Enter a quantity and sell price to preview realized P/L.</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeSellModal()">Cancel</button>
+        <button class="btn btn-primary" id="sellConfirmBtn" onclick="confirmSell()">Confirm Sale</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Buy More modal -->
+<div class="modal-overlay hidden" id="buyModal">
+  <div class="modal-card" style="max-width:480px">
+    <div class="modal-head">
+      <div><div class="panel-title" id="buyModalTitle">Buy More</div></div>
+      <span class="modal-close" onclick="closeBuyModal()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="holding-ctx" id="buyHoldingCtx"></div>
+      <div class="buy-form">
+        <div class="pf-field"><label>Additional Quantity</label><input class="finput" id="buyQty" type="number" step="0.0001" oninput="updateBuyPreview()"/></div>
+        <div class="pf-field"><label>Buy Price (₹)</label><input class="finput" id="buyPrice" type="number" step="0.01" oninput="updateBuyPreview()"/></div>
+        <div class="pf-field"><label>Buy Date</label><input class="finput" id="buyDate" type="date"/></div>
+        <div class="pf-field"><label>Brokerage / Charges (₹, optional)</label><input class="finput" id="buyCharges" type="number" step="0.01" value="0"/></div>
+      </div>
+      <div class="sell-preview" id="buyPreview">Enter quantity and price to preview the new weighted average buy price.</div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeBuyModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmBuy()">Confirm Purchase</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal-overlay hidden" id="deleteModal">
+  <div class="modal-card danger-modal" style="max-width:440px">
+    <div class="modal-head">
+      <div><div class="panel-title">Delete Holding</div></div>
+      <span class="modal-close" onclick="closeDeleteModal()">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="danger-warning">
+        <span class="dw-icon">⚠</span>
+        <div>You're about to remove <b id="deleteHoldingSym" style="font-family:var(--font-mono)"></b> from your portfolio views. This holding's buy/sell transaction history is preserved and can be restored later, but treat this as a permanent action — restoring requires contacting support if you lose track of it.</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmDelete()">Yes, delete this holding</button>
+      </div>
     </div>
   </div>
 </div>
@@ -446,7 +570,14 @@ let CURRENT_USER = null;
 let HOLDINGS = [];
 let LAST_SUMMARY = null;
 let trendChart = null;
+let historyChart = null;
+let HISTORY_RANGE = '3M';
+let SELL_TARGET_ID = null;
+let BUY_TARGET_ID = null;
+let DELETE_TARGET_ID = null;
 const SCREENER_URL = './index.html';
+const STATUS_BADGE = {ACTIVE:'status-active', PARTIAL:'status-partial', SOLD:'status-sold'};
+const STATUS_TEXT = {ACTIVE:'Active', PARTIAL:'Partial Exit', SOLD:'Fully Exited'};
 
 const inr  = v => (v == null || isNaN(v)) ? '—' : '₹' + Number(v).toLocaleString('en-IN',{maximumFractionDigits:2});
 const fNum = v => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-IN');
@@ -538,6 +669,7 @@ async function loadAll() {
     HOLDINGS = holdings.data || [];
     LAST_SUMMARY = summary;
     renderMorningBrief(summary.morning_brief);
+    renderTodayStrip(summary.cards || {});
     renderCards(summary);
     renderTrailingStopWatch(summary.trailing_stop_watch || []);
     renderRotation(summary.capital_rotation || []);
@@ -546,6 +678,7 @@ async function loadAll() {
     renderHistory(HOLDINGS.filter(h => h.status === 'SOLD'));
     renderAnalytics(summary);
     renderMissingDates(HOLDINGS.filter(h => h.requires_confirmation));
+    loadHistoryChart(HISTORY_RANGE);
   } catch (e) {
     toast(cleanErr(e.message), 5000);
     if (e.message.startsWith('401')) { setAuth(''); CURRENT_USER = null; showScreen(); }
@@ -553,8 +686,20 @@ async function loadAll() {
 }
 
 function renderCards(summary) {
-  const h = summary.portfolio_health || {};
+  const c = summary.cards || {};
   const items = [
+    ['Total Invested', inr(c.total_investment), ''],
+    ['Current Value', inr(c.current_value), ''],
+    ['Unrealized P/L', `<span class="${pCls(c.unrealized_pnl)}">${inr(c.unrealized_pnl)}</span>`, c.return_pct != null ? `<span class="${pCls(c.return_pct)}">${fPct(c.return_pct)}</span> overall return` : ''],
+    ['Realized P/L', `<span class="${pCls(c.realized_pnl)}">${inr(c.realized_pnl)}</span>`, 'From partial &amp; full exits'],
+    ['Active Holdings', fNum(c.number_of_holdings), `${fNum(c.winning_holdings)} up · ${fNum(c.losing_holdings)} down`],
+    ['Overall Return %', c.return_pct != null ? `<span class="${pCls(c.return_pct)}">${fPct(c.return_pct)}</span>` : '—', c.xirr_pct != null ? `XIRR ${fPct(c.xirr_pct)}` : ''],
+  ];
+  document.getElementById('dashboardCards').innerHTML = items.map(([l, v, s]) =>
+    `<div class="card"><div class="card-label">${l}</div><div class="card-value">${v}</div>${s ? `<div class="card-sub">${s}</div>` : ''}</div>`).join('');
+
+  const h = summary.portfolio_health || {};
+  const healthItems = [
     ['Portfolio Health', h.portfolio_health != null ? h.portfolio_health : '—', 'Composite of momentum, position quality, risk & diversification'],
     ['Momentum Health', h.momentum_health != null ? f1(h.momentum_health) : '—', 'Weighted average momentum score'],
     ['Risk Score', h.risk_score != null ? h.risk_score : '—', 'Higher = more concentration / drawdown exposure'],
@@ -564,8 +709,19 @@ function renderCards(summary) {
     ['Win Rate', h.win_rate != null ? f1(h.win_rate) + '%' : '—', ''],
     ['Avg Position Score', h.average_position_score != null ? f1(h.average_position_score) : '—', ''],
   ];
-  document.getElementById('dashboardCards').innerHTML = items.map(([l, v, s]) =>
+  document.getElementById('dashboardCards').innerHTML += healthItems.map(([l, v, s]) =>
     `<div class="card"><div class="card-label">${l}</div><div class="card-value">${v}</div>${s ? `<div class="card-sub">${s}</div>` : ''}</div>`).join('');
+}
+
+// -- TODAY'S PERFORMANCE (Part 6) --------------------------------------
+function renderTodayStrip(c) {
+  const el = document.getElementById('todayStrip');
+  const pnl = c.today_pnl;
+  const pct = c.today_return_pct;
+  el.innerHTML = `
+    <div><div class="ts-label">Today's P/L</div><div class="ts-value ${pCls(pnl)}">${inr(pnl)}</div></div>
+    <div><div class="ts-label">Today's Return</div><div class="ts-value ${pCls(pct)}">${fPct(pct)}</div></div>
+    <div class="ts-sub">Calculated across all active/partial holdings using today's price move.</div>`;
 }
 
 // ── MORNING PORTFOLIO BRIEF ──────────────────────────────────────
@@ -581,6 +737,54 @@ function renderMorningBrief(brief) {
       <div class="brief-stat"><b style="color:var(--amber)">${s.watch_closely ?? 0}</b>Watch Closely</div>
       <div class="brief-stat"><b class="neg">${s.high_risk ?? 0}</b>High Risk</div>
     </div>`;
+}
+
+// ── PORTFOLIO PERFORMANCE HISTORY (Part 9) ───────────────────────
+function setHistoryRange(range) {
+  HISTORY_RANGE = range;
+  document.querySelectorAll('#rangeTabs .range-tab').forEach(b => b.classList.toggle('active', b.dataset.range === range));
+  loadHistoryChart(range);
+}
+async function loadHistoryChart(range) {
+  document.querySelectorAll('#rangeTabs .range-tab').forEach(b => b.classList.toggle('active', b.dataset.range === range));
+  const note = document.getElementById('historyChartNote');
+  try {
+    const d = await apiFetch(`/api/portfolio/performance-history?range=${encodeURIComponent(range)}`);
+    const points = d.data || [];
+    if (!points.length) {
+      if (historyChart) { historyChart.destroy(); historyChart = null; }
+      note.textContent = 'No performance history yet — it builds up automatically once you have holdings and a few trading days behind you.';
+      return;
+    }
+    const labels = points.map(p => p.date);
+    const values = points.map(p => Number(p.current_value));
+    const invested = points.map(p => Number(p.invested));
+    if (historyChart) historyChart.destroy();
+    const ctx = document.getElementById('historyCanvas').getContext('2d');
+    historyChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Portfolio Value', data: values, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)', fill: true, tension: 0.2, pointRadius: 0, borderWidth: 2 },
+          { label: 'Invested Capital', data: invested, borderColor: '#64748b', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5 },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 11 } } } },
+        scales: {
+          x: { ticks: { color: '#64748b', maxTicksLimit: 8, font: { size: 10 } }, grid: { color: '#1e2634' } },
+          y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e2634' } },
+        },
+      },
+    });
+    const first = values[0], last = values[values.length - 1];
+    const chg = first ? ((last - first) / first * 100) : 0;
+    note.innerHTML = `Since ${labels[0]}: <span class="${pCls(chg)}">${fPct(chg)}</span> portfolio value change.`;
+  } catch (e) {
+    note.textContent = cleanErr(e.message);
+  }
 }
 
 // ── CAPITAL ROTATION ─────────────────────────────────────────────
@@ -677,8 +881,15 @@ function scoreBar(score) {
 function qualityBadge(q) { if (!q) return '—'; return `<span class="quality-badge ${QUALITY_CLASS[q] || ''}">${q}</span>`; }
 function riskBadge(r) { if (!r) return '—'; return `<span class="risk-badge risk-${r}">${r}</span>`; }
 
+function statusBadge(h) {
+  const cls = STATUS_BADGE[h.status] || 'status-sold';
+  const text = h.status_label || STATUS_TEXT[h.status] || h.status;
+  return `<span class="status-pill ${cls}">${text}</span>`;
+}
+
 function renderHoldings(rows) {
-  const body = rows.map(h => `<tr>
+  const open = rows.filter(h => h.status === 'ACTIVE' || h.status === 'PARTIAL');
+  const body = open.map(h => `<tr>
     <td>
       <span class="sym-link" onclick="openTrendModal(${h.id})">📈 ${h.symbol}</span>
       <span class="sector-tag">${h.sector || ''}</span>
@@ -686,33 +897,43 @@ function renderHoldings(rows) {
     <td>${fNum(h.quantity)}</td>
     <td>${inr(h.avg_buy_price)}</td>
     <td>${inr(h.current_price)}</td>
+    <td>${inr(h.investment_amount)}</td>
     <td>${inr(h.current_value)}</td>
-    <td class="${pCls(h.profit_loss)}">${inr(h.profit_loss)}</td>
+    <td class="${pCls(h.unrealized_pnl)}">${inr(h.unrealized_pnl)}</td>
     <td class="${pCls(h.gain_pct)}">${fPct(h.gain_pct)}</td>
-    <td>${h.status === 'ACTIVE' ? scoreBar(h.position_score) : '—'}</td>
-    <td>${h.status === 'ACTIVE' ? `<span class="conf-num">${h.confidence}%</span>` : '—'}</td>
-    <td>${h.status === 'ACTIVE' ? `<span class="trend-tag">${h.trend_quality || '—'}</span>` : '—'}</td>
-    <td>${h.status === 'ACTIVE' ? `<span class="trend-tag">${h.momentum_quality || '—'}</span>` : '—'}</td>
-    <td>${h.status === 'ACTIVE' ? riskBadge(h.risk_level) : '—'}</td>
-    <td>${h.status === 'ACTIVE' && h.portfolio_contribution != null ? f1(h.portfolio_contribution) + '%' : '—'}</td>
-    <td class="${pCls(h.chg_1d)}">${h.status === 'ACTIVE' ? fPct(h.chg_1d) : '—'}</td>
-    <td>${h.status === 'ACTIVE' ? qualityBadge(h.position_status) : `<span class="status-pill status-sold">SOLD</span>`}</td>
-    <td><div class="table-actions">${h.status === 'ACTIVE' ? `<button class="link-btn" onclick="editHolding(${h.id})">Edit</button><button class="link-btn" onclick="sellHolding(${h.id})">Mark Sold</button>` : ''}<button class="danger-btn" onclick="deleteHolding(${h.id})">Delete</button></div></td>
+    <td class="${pCls(h.today_change)}">${h.today_change != null ? inr(h.today_change) : '—'}<br/><span style="font-size:10px">${fPct(h.today_change_pct)}</span></td>
+    <td>${scoreBar(h.position_score)}</td>
+    <td><span class="conf-num">${h.confidence}%</span></td>
+    <td><span class="trend-tag">${h.trend_quality || '—'}</span></td>
+    <td><span class="trend-tag">${h.momentum_quality || '—'}</span></td>
+    <td>${riskBadge(h.risk_level)}</td>
+    <td>${h.portfolio_contribution != null ? f1(h.portfolio_contribution) + '%' : '—'}</td>
+    <td>${qualityBadge(h.position_status)}</td>
+    <td>${statusBadge(h)}</td>
+    <td><div class="table-actions">
+      <button class="link-btn" onclick="openBuyModal(${h.id})">Buy More</button>
+      <button class="link-btn" onclick="openSellModal(${h.id})">Sell</button>
+      <button class="link-btn" onclick="editHolding(${h.id})">Edit Date</button>
+      <button class="danger-btn" onclick="openDeleteModal(${h.id})">Delete</button>
+    </div></td>
   </tr>`).join('');
   document.getElementById('holdingsTable').innerHTML =
-    `<table><thead><tr><th>Symbol</th><th>Qty</th><th>Avg Buy</th><th>Current</th><th>Value</th><th>P/L</th><th>Gain %</th><th>Position Score</th><th>Confidence</th><th>Trend</th><th>Momentum</th><th>Risk</th><th>Weight</th><th>Chg Today</th><th>Status</th><th>Actions</th></tr></thead>
-    <tbody>${body || '<tr class="empty-row"><td colspan="16">No holdings yet — add one below or upload a broker file</td></tr>'}</tbody></table>`;
+    `<table><thead><tr><th>Symbol</th><th>Qty</th><th>Avg Buy</th><th>Current</th><th>Invested</th><th>Value</th><th>Unrealized P/L</th><th>Gain %</th><th>Today's Change</th><th>Position Score</th><th>Confidence</th><th>Trend</th><th>Momentum</th><th>Risk</th><th>Weight</th><th>Quality</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${body || '<tr class="empty-row"><td colspan="18">No holdings yet — add one below or upload a broker file</td></tr>'}</tbody></table>`;
 }
 
 function renderHistory(rows) {
   const body = rows.map(h => `<tr>
     <td class="mono">${h.symbol}</td><td>${h.buy_date || '—'}</td><td>${h.sell_date || '—'}</td><td>${h.days_held ?? '—'}</td>
+    <td>${fNum(h.total_bought_quantity)}</td>
     <td>${inr(h.avg_buy_price)}</td><td>${inr(h.sell_price)}</td>
-    <td class="${pCls(h.profit_loss)}">${inr(h.profit_loss)}</td><td class="${pCls(h.gain_pct)}">${fPct(h.gain_pct)}</td>
-    <td><button class="danger-btn" onclick="deleteHolding(${h.id})">Delete</button></td></tr>`).join('');
+    <td>${inr(h.investment_amount)}</td>
+    <td class="${pCls(h.realized_pnl)}">${inr(h.realized_pnl)}</td><td class="${pCls(h.gain_pct)}">${fPct(h.gain_pct)}</td>
+    <td>${statusBadge(h)}</td>
+    <td><button class="link-btn" onclick="openBuyModal(${h.id})">Re-enter</button> <button class="danger-btn" onclick="openDeleteModal(${h.id})">Delete</button></td></tr>`).join('');
   document.getElementById('historyTable').innerHTML =
-    `<table><thead><tr><th>Symbol</th><th>Buy Date</th><th>Sell Date</th><th>Duration</th><th>Buy Price</th><th>Sell Price</th><th>Realized P/L</th><th>Return %</th><th>Actions</th></tr></thead>
-    <tbody>${body || '<tr class="empty-row"><td colspan="9">No sold holdings yet</td></tr>'}</tbody></table>`;
+    `<table><thead><tr><th>Symbol</th><th>Buy Date</th><th>Last Sell Date</th><th>Duration</th><th>Qty Sold</th><th>Avg Buy</th><th>Last Sell Price</th><th>Invested</th><th>Realized P/L</th><th>Return %</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${body || '<tr class="empty-row"><td colspan="12">No fully exited holdings yet</td></tr>'}</tbody></table>`;
 }
 
 function renderAnalytics(s) {
@@ -787,22 +1008,130 @@ async function importPortfolio() {
 }
 async function editHolding(id) {
   const h = HOLDINGS.find(x => x.id === id); if (!h) return;
-  const quantity = prompt('Quantity', h.quantity); if (quantity === null) return;
-  const avg_buy_price = prompt('Average buy price', h.avg_buy_price); if (avg_buy_price === null) return;
   const buy_date = prompt('Buy date (YYYY-MM-DD)', h.buy_date || ''); if (buy_date === null) return;
-  await apiFetch(`/api/portfolio/holdings/${id}`, { method: 'PATCH', body: JSON.stringify({ quantity: Number(quantity), avg_buy_price: Number(avg_buy_price), buy_date, requires_confirmation: false }) });
-  toast('Holding updated'); loadAll();
+  try {
+    await apiFetch(`/api/portfolio/holdings/${id}`, { method: 'PATCH', body: JSON.stringify({ buy_date, requires_confirmation: false }) });
+    toast('Buy date updated'); loadAll();
+  } catch (e) { toast(cleanErr(e.message), 6000); }
 }
-async function sellHolding(id) {
-  const sell_date = prompt('Sell date (YYYY-MM-DD)', new Date().toISOString().slice(0, 10)); if (!sell_date) return;
-  const sell_price = prompt('Sell price'); if (!sell_price) return;
-  await apiFetch(`/api/portfolio/holdings/${id}/sell`, { method: 'POST', body: JSON.stringify({ sell_date, sell_price: Number(sell_price) }) });
-  toast('Moved to Portfolio History'); loadAll();
+
+// ── SELL POSITION (Part 1) ───────────────────────────────────────
+function openSellModal(id) {
+  const h = HOLDINGS.find(x => x.id === id); if (!h) return;
+  SELL_TARGET_ID = id;
+  document.getElementById('sellModalTitle').textContent = `Sell Position — ${h.symbol}`;
+  document.getElementById('sellHoldingCtx').innerHTML =
+    `Currently holding <b>${fNum(h.quantity)}</b> shares of <b>${h.symbol}</b> at an average buy price of <b>${inr(h.avg_buy_price)}</b>.`;
+  document.getElementById('sellQty').value = '';
+  document.getElementById('sellQty').max = h.quantity;
+  document.getElementById('sellPrice').value = h.current_price || '';
+  document.getElementById('sellDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('sellCharges').value = 0;
+  document.getElementById('sellNotes').value = '';
+  updateSellPreview();
+  document.getElementById('sellModal').classList.remove('hidden');
 }
-async function deleteHolding(id) {
-  if (!confirm('Delete this holding?')) return;
-  await apiFetch(`/api/portfolio/holdings/${id}`, { method: 'DELETE' });
-  toast('Holding deleted'); loadAll();
+function closeSellModal() { document.getElementById('sellModal').classList.add('hidden'); SELL_TARGET_ID = null; }
+function updateSellPreview() {
+  const h = HOLDINGS.find(x => x.id === SELL_TARGET_ID);
+  const preview = document.getElementById('sellPreview');
+  if (!h) return;
+  const qty = Number(document.getElementById('sellQty').value);
+  const price = Number(document.getElementById('sellPrice').value);
+  const charges = Number(document.getElementById('sellCharges').value) || 0;
+  if (!qty || !price) { preview.textContent = 'Enter a quantity and sell price to preview realized P/L.'; return; }
+  if (qty > Number(h.quantity)) {
+    preview.innerHTML = `<span class="neg">Cannot sell ${fNum(qty)} shares — only ${fNum(h.quantity)} are currently held.</span>`;
+    return;
+  }
+  const realized = qty * (price - h.avg_buy_price) - charges;
+  const remaining = Number(h.quantity) - qty;
+  preview.innerHTML = `Realized P/L for this sale: <b class="${pCls(realized)}">${inr(realized)}</b> &nbsp;·&nbsp; Remaining holding after sale: <b>${fNum(remaining)}</b> shares at unchanged avg buy price <b>${inr(h.avg_buy_price)}</b> &nbsp;·&nbsp; New status: <b>${remaining <= 0 ? 'Fully Exited' : 'Partial Exit'}</b>`;
+}
+async function confirmSell() {
+  const h = HOLDINGS.find(x => x.id === SELL_TARGET_ID); if (!h) return;
+  const quantity = Number(document.getElementById('sellQty').value);
+  const sell_price = Number(document.getElementById('sellPrice').value);
+  const sell_date = document.getElementById('sellDate').value;
+  const charges = Number(document.getElementById('sellCharges').value) || 0;
+  const notes = document.getElementById('sellNotes').value.trim() || null;
+  if (!(quantity > 0)) return toast('Enter a valid quantity to sell');
+  if (quantity > Number(h.quantity)) return toast(`Cannot sell more than the ${fNum(h.quantity)} shares currently held`);
+  if (!(sell_price > 0)) return toast('Enter a valid sell price');
+  if (!sell_date) return toast('Select a sell date');
+  const btn = document.getElementById('sellConfirmBtn');
+  btn.disabled = true; btn.textContent = 'Selling…';
+  try {
+    await apiFetch(`/api/portfolio/holdings/${SELL_TARGET_ID}/sell`, {
+      method: 'POST',
+      body: JSON.stringify({ quantity, sell_price, sell_date, charges, notes }),
+    });
+    toast('Sale recorded'); closeSellModal(); loadAll();
+  } catch (e) { toast(cleanErr(e.message), 6000); }
+  finally { btn.disabled = false; btn.textContent = 'Confirm Sale'; }
+}
+
+// ── BUY MORE (Part 3 — multiple purchases) ───────────────────────
+function openBuyModal(id) {
+  const h = HOLDINGS.find(x => x.id === id); if (!h) return;
+  BUY_TARGET_ID = id;
+  document.getElementById('buyModalTitle').textContent = `Buy More — ${h.symbol}`;
+  const isReentry = h.status === 'SOLD';
+  document.getElementById('buyHoldingCtx').innerHTML = isReentry
+    ? `This holding was fully exited. Buying more will reopen it as a new active position; its past realized P/L stays on record.`
+    : `Currently holding <b>${fNum(h.quantity)}</b> shares of <b>${h.symbol}</b> at an average buy price of <b>${inr(h.avg_buy_price)}</b>.`;
+  document.getElementById('buyQty').value = '';
+  document.getElementById('buyPrice').value = h.current_price || '';
+  document.getElementById('buyDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('buyCharges').value = 0;
+  updateBuyPreview();
+  document.getElementById('buyModal').classList.remove('hidden');
+}
+function closeBuyModal() { document.getElementById('buyModal').classList.add('hidden'); BUY_TARGET_ID = null; }
+function updateBuyPreview() {
+  const h = HOLDINGS.find(x => x.id === BUY_TARGET_ID);
+  const preview = document.getElementById('buyPreview');
+  if (!h) return;
+  const qty = Number(document.getElementById('buyQty').value);
+  const price = Number(document.getElementById('buyPrice').value);
+  if (!qty || !price) { preview.textContent = 'Enter quantity and price to preview the new weighted average buy price.'; return; }
+  const oldQty = h.status === 'SOLD' ? 0 : Number(h.quantity);
+  const oldAvg = h.status === 'SOLD' ? 0 : Number(h.avg_buy_price);
+  const newQty = oldQty + qty;
+  const newAvg = ((oldQty * oldAvg) + (qty * price)) / newQty;
+  preview.innerHTML = `New total quantity: <b>${fNum(newQty)}</b> &nbsp;·&nbsp; New weighted average buy price: <b>${inr(newAvg)}</b>`;
+}
+async function confirmBuy() {
+  const quantity = Number(document.getElementById('buyQty').value);
+  const price = Number(document.getElementById('buyPrice').value);
+  const buy_date = document.getElementById('buyDate').value;
+  const charges = Number(document.getElementById('buyCharges').value) || 0;
+  if (!(quantity > 0)) return toast('Enter a valid quantity');
+  if (!(price > 0)) return toast('Enter a valid price');
+  if (!buy_date) return toast('Select a buy date');
+  try {
+    await apiFetch(`/api/portfolio/holdings/${BUY_TARGET_ID}/buy`, {
+      method: 'POST',
+      body: JSON.stringify({ quantity, price, buy_date, charges }),
+    });
+    toast('Purchase recorded'); closeBuyModal(); loadAll();
+  } catch (e) { toast(cleanErr(e.message), 6000); }
+}
+
+// ── SAFE DELETE (Part 4) ──────────────────────────────────────────
+function openDeleteModal(id) {
+  const h = HOLDINGS.find(x => x.id === id); if (!h) return;
+  DELETE_TARGET_ID = id;
+  document.getElementById('deleteHoldingSym').textContent = h.symbol;
+  document.getElementById('deleteModal').classList.remove('hidden');
+}
+function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); DELETE_TARGET_ID = null; }
+async function confirmDelete() {
+  if (!DELETE_TARGET_ID) return;
+  try {
+    await apiFetch(`/api/portfolio/holdings/${DELETE_TARGET_ID}`, { method: 'DELETE' });
+    toast('Holding deleted'); closeDeleteModal(); loadAll();
+  } catch (e) { toast(cleanErr(e.message), 6000); }
 }
 
 // ── POSITION DETAIL MODAL ────────────────────────────────────────
@@ -815,8 +1144,18 @@ const BREAKDOWN_WEIGHTS = {momentum:.25, relative_strength:.20, trend:.20, volum
 
 function renderPositionIntel(h) {
   const wrap = document.getElementById('detailIntel');
-  if (h.status !== 'ACTIVE' || !h.score_breakdown) {
-    wrap.innerHTML = `<div class="panel-sub">Position Intelligence is only computed for active holdings.</div>`;
+  const financialCards = `
+    <div class="cards" style="grid-template-columns:repeat(5,1fr);margin-bottom:14px">
+      <div class="card"><div class="card-label">Invested</div><div class="card-value" style="font-size:15px">${inr(h.investment_amount)}</div></div>
+      <div class="card"><div class="card-label">Current Value</div><div class="card-value" style="font-size:15px">${inr(h.current_value)}</div></div>
+      <div class="card"><div class="card-label">Unrealized P/L</div><div class="card-value ${pCls(h.unrealized_pnl)}" style="font-size:15px">${inr(h.unrealized_pnl)}</div></div>
+      <div class="card"><div class="card-label">Today's Change</div><div class="card-value ${pCls(h.today_change)}" style="font-size:15px">${h.today_change != null ? inr(h.today_change) : '—'}</div></div>
+      <div class="card"><div class="card-label">Portfolio Weight</div><div class="card-value" style="font-size:15px">${h.portfolio_contribution != null ? f1(h.portfolio_contribution) + '%' : '—'}</div></div>
+    </div>
+    <div style="margin-bottom:14px">${statusBadge(h)} ${h.realized_pnl ? `<span class="panel-sub" style="display:inline">Realized P/L to date: <b class="${pCls(h.realized_pnl)}">${inr(h.realized_pnl)}</b></span>` : ''}</div>`;
+
+  if (h.status === 'SOLD' || !h.score_breakdown) {
+    wrap.innerHTML = financialCards + `<div class="panel-sub">Position Intelligence (momentum/trend scoring) is only computed for open holdings.</div>`;
     return;
   }
   const b = h.score_breakdown;
@@ -825,14 +1164,14 @@ function renderPositionIntel(h) {
   const strengths = contributions.filter(c => c.value >= 65).slice(0, 3);
   const risks = contributions.filter(c => c.value < 45).slice(0, 3);
 
-  wrap.innerHTML = `
+  wrap.innerHTML = financialCards + `
     <div class="cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
       <div class="card"><div class="card-label">Position Score</div><div class="card-value">${h.position_score}</div></div>
       <div class="card"><div class="card-label">Confidence</div><div class="card-value">${h.confidence}%</div></div>
       <div class="card"><div class="card-label">Risk Level</div><div class="card-value">${riskBadge(h.risk_level)}</div></div>
-      <div class="card"><div class="card-label">Portfolio Weight</div><div class="card-value">${h.portfolio_contribution != null ? f1(h.portfolio_contribution) + '%' : '—'}</div></div>
+      <div class="card"><div class="card-label">Position Quality</div><div class="card-value">${qualityBadge(h.position_status)}</div></div>
     </div>
-    <div style="margin-bottom:6px">${qualityBadge(h.position_status)} <span class="panel-sub" style="display:inline">${h.trend_quality} · ${h.momentum_quality} · RS: ${h.relative_strength_label}</span></div>
+    <div style="margin-bottom:6px"><span class="panel-sub" style="display:inline">${h.trend_quality} · ${h.momentum_quality} · RS: ${h.relative_strength_label}</span></div>
     <div class="panel-title" style="font-size:12px;margin:14px 0 8px">Score Breakdown</div>
     <div class="mini-bars" style="padding:0">
       ${contributions.map(c => `<div class="mini-bar"><div>${BREAKDOWN_LABELS[c.key]} <span style="color:var(--t3)">(${Math.round((BREAKDOWN_WEIGHTS[c.key]||0)*100)}%)</span></div><div class="mini-track"><div class="mini-fill" style="width:${c.value}%;background:${SCORE_COLOR(c.value)}"></div></div><div class="mono">${c.value}</div></div>`).join('')}
@@ -858,6 +1197,7 @@ async function openTrendModal(id) {
   document.getElementById('trendModalTitle').textContent = `${h.symbol} — Position Intelligence`;
   document.getElementById('trendModalSub').textContent = h.company_name ? `${h.company_name} · ${h.sector || ''}` : (h.sector || '');
   renderPositionIntel(h);
+  loadHoldingTransactions(id);
   document.getElementById('trendModalNote').textContent = 'Loading…';
   try {
     const d = await apiFetch(`/api/portfolio/holdings/${id}/trendline`);
@@ -898,8 +1238,27 @@ async function openTrendModal(id) {
     document.getElementById('trendModalNote').textContent = cleanErr(e.message);
   }
 }
+async function loadHoldingTransactions(id) {
+  const el = document.getElementById('detailTransactions');
+  el.innerHTML = '<div class="panel-sub">Loading transaction history…</div>';
+  try {
+    const d = await apiFetch(`/api/portfolio/holdings/${id}/transactions`);
+    const rows = d.data || [];
+    if (!rows.length) { el.innerHTML = '<div class="panel-sub">No transactions recorded yet.</div>'; return; }
+    el.innerHTML = rows.map(t => `
+      <div class="txn-row">
+        <div><span class="txn-type txn-${t.txn_type}">${t.txn_type}</span> <span class="mono">${fNum(t.quantity)}</span> @ <span class="mono">${inr(t.price)}</span></div>
+        <div class="txn-meta">${t.txn_date}${t.charges ? ' · charges ' + inr(t.charges) : ''}${t.realized_pnl != null ? ' · P/L ' : ''}${t.realized_pnl != null ? `<span class="${pCls(t.realized_pnl)}">${inr(t.realized_pnl)}</span>` : ''}</div>
+      </div>`).join('');
+  } catch (e) {
+    el.innerHTML = `<div class="panel-sub">${cleanErr(e.message)}</div>`;
+  }
+}
 function closeTrendModal() { document.getElementById('trendModal').classList.add('hidden'); }
 document.getElementById('trendModal').addEventListener('click', (e) => { if (e.target.id === 'trendModal') closeTrendModal(); });
+document.getElementById('sellModal').addEventListener('click', (e) => { if (e.target.id === 'sellModal') closeSellModal(); });
+document.getElementById('buyModal').addEventListener('click', (e) => { if (e.target.id === 'buyModal') closeBuyModal(); });
+document.getElementById('deleteModal').addEventListener('click', (e) => { if (e.target.id === 'deleteModal') closeDeleteModal(); });
 
 // ── INIT ─────────────────────────────────────────────────────────
 showScreen();
