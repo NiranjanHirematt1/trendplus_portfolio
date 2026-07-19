@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from datetime import date
 from decimal import Decimal
 import math
+from typing import Optional
 
+import asyncpg
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from app.api.deps import current_user
@@ -18,10 +21,12 @@ from app.models.portfolio import (
 from app.services import ai_analysis
 from app.services import portfolio_history as ph
 from app.services import portfolio_intelligence as pi
+from app.services import verdict_engine
 from app.services.ai_analysis import AIAnalysisError
 from app.services.portfolio_analytics import compute_peak_drawdowns, concentration_risk, portfolio_xirr
 from app.services.portfolio_import import parse_portfolio_file
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Statuses that still represent live market exposure (as opposed to SOLD =
@@ -228,6 +233,19 @@ async def portfolio_summary(user=Depends(current_user), pool=Depends(get_pool)):
         "sector_allocation": [{"sector": k, "value": v, "pct": (v / current_value * 100) if current_value else 0} for k, v in sorted(sector_totals.items())],
         "dead_money": dead,
         "trailing_stop_watch": trailing_stop_watch,
+        "verdict_summary": {
+            v: len([r for r in active if r.get("verdict") == v])
+            for v in ("ADD_MORE", "HOLD", "TRIM", "EXIT")
+        },
+        "capital_drains": sorted(
+            [r for r in active if r.get("capital_flag") == "draining"],
+            key=lambda r: float(r.get("unrealized_pnl") or 0),
+        ),
+        "value_creators": sorted(
+            [r for r in active if r.get("capital_flag") == "creating"],
+            key=lambda r: float(r.get("unrealized_pnl") or 0),
+            reverse=True,
+        ),
     }
 
 
@@ -252,6 +270,8 @@ async def apply_peak_drawdowns(conn, active: list[dict]) -> None:
         dd = drawdowns.get(h["id"])
         h["peak_price"] = dd["peak_price"] if dd else None
         h["drawdown_from_peak_pct"] = dd["drawdown_from_peak_pct"] if dd else None
+        h["days_below_cost_streak"] = dd["days_below_cost_streak"] if dd else None
+        h["days_above_cost_streak"] = dd["days_above_cost_streak"] if dd else None
 
 
 def _apply_today_change(d: dict) -> None:
@@ -331,9 +351,13 @@ async def enriched_holdings(conn, portfolio_id: int, scope: str = "open"):
         symbols = [d["symbol"] for d in active]
         sector_momentum = await pi.fetch_sector_momentum(conn, trade_date) if trade_date else {}
         volume_ratios = await pi.fetch_volume_ratios(conn, symbols, trade_date) if trade_date else {}
+        rs_streaks = await pi.fetch_rs_streaks(conn, symbols, trade_date) if trade_date else {}
         total_value = sum(float(d.get("current_value") or 0) for d in active)
 
         for d in active:
+            streak = rs_streaks.get(d["symbol"])
+            d["rel_streak_direction"] = streak["direction"] if streak else None
+            d["rel_streak_days"] = streak["days"] if streak else None
             weight_pct = (float(d.get("current_value") or 0) / total_value * 100) if total_value else None
             d["portfolio_contribution"] = weight_pct
             intel = pi.calculate_position_score(
@@ -351,18 +375,112 @@ async def enriched_holdings(conn, portfolio_id: int, scope: str = "open"):
 
         await apply_peak_drawdowns(conn, active)
 
+        # Verdicts need the full picture (scores + drawdowns + streaks),
+        # so they run last. History is recorded per trading day so the UI
+        # can show how long each verdict has been in effect.
+        verdict_engine.evaluate_portfolio(active)
+        if trade_date:
+            await record_verdict_history(conn, trade_date, active)
+
     return result
 
 
-@router.get("/holdings", summary="List continuously tracked holdings")
-async def list_holdings(user=Depends(current_user), pool=Depends(get_pool)):
+async def record_verdict_history(conn, trade_date, active: list[dict]) -> None:
+    """Persist today's verdict per holding (idempotent upsert) and annotate
+    each row with verdict_since / verdict_age_sessions from the history.
+    Degrades to a no-op if migration v7 (holding_verdicts) hasn't run yet."""
+    try:
+        await conn.executemany(
+            """
+            insert into holding_verdicts (holding_id, portfolio_id, symbol, trade_date,
+                                          verdict, confidence, position_score, gain_pct, reasons)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+            on conflict (holding_id, trade_date) do update set
+                verdict = excluded.verdict,
+                confidence = excluded.confidence,
+                position_score = excluded.position_score,
+                gain_pct = excluded.gain_pct,
+                reasons = excluded.reasons
+            """,
+            [
+                (h["id"], h["portfolio_id"], h["symbol"], trade_date,
+                 h["verdict"], h.get("verdict_confidence"),
+                 h.get("position_score"), h.get("gain_pct"), h.get("verdict_reasons"))
+                for h in active
+            ],
+        )
+        history = await conn.fetch(
+            """
+            select holding_id, trade_date, verdict
+            from holding_verdicts
+            where holding_id = any($1::bigint[]) and trade_date <= $2
+            order by holding_id, trade_date desc
+            """,
+            [h["id"] for h in active], trade_date,
+        )
+    except asyncpg.UndefinedTableError:
+        logger.warning("holding_verdicts table missing — run sql/migration_v7_verdicts_watchlist.sql")
+        for h in active:
+            h["verdict_since"] = None
+            h["verdict_age_sessions"] = None
+        return
+
+    by_holding: dict[int, list] = {}
+    for r in history:
+        by_holding.setdefault(r["holding_id"], []).append(r)
+    for h in active:
+        rows_h = by_holding.get(h["id"], [])
+        since, age = None, 0
+        for r in rows_h:  # newest first
+            if r["verdict"] != h["verdict"]:
+                break
+            since = r["trade_date"]
+            age += 1
+        h["verdict_since"] = str(since) if since else None
+        h["verdict_age_sessions"] = age or None
+
+
+@router.get("/holdings", summary="List continuously tracked holdings with dynamic sorting and row numbering")
+async def list_holdings(
+    sort_by: Optional[str] = None, 
+    sort_order: Optional[str] = "desc", 
+    user=Depends(current_user), 
+    pool=Depends(get_pool)
+):
     async with pool.acquire() as conn:
         pid = await ensure_portfolio(conn, user["id"])
         rows = await enriched_holdings(conn, pid, scope="all")
+        
     total_value = sum(float(r.get("current_value") or 0) for r in rows if r["status"] in OPEN_STATUSES)
+    
     for r in rows:
         if r["status"] in OPEN_STATUSES:
             r["portfolio_contribution"] = (float(r.get("current_value") or 0) / total_value * 100) if total_value else 0
+
+    # 1. Apply Dynamic Sorting if requested
+    if sort_by:
+        reverse = sort_order.lower() != "asc"
+        
+        def get_sort_val(row_dict):
+            val = row_dict.get(sort_by)
+            # Ensure numbers stick together and strings stick together to prevent TypeErrors
+            if isinstance(val, (int, float, Decimal)):
+                return (0, float(val))
+            elif val is not None:
+                return (1, str(val).lower())
+            else:
+                # Send null/None values to the bottom regardless of sort order
+                return (2, 0) if not reverse else (-1, 0)
+                
+        try:
+            rows.sort(key=get_sort_val, reverse=reverse)
+        except Exception:
+            pass # Failsafe: if an unexpected sorting clash happens, retain default DB order
+
+    # 2. Append Serial Number based on the final order
+    for index, r in enumerate(rows, start=1):
+        r["s_no"] = index
+
     return {"data": rows}
 
 
@@ -378,14 +496,18 @@ async def add_holding(payload: HoldingCreate, user=Depends(current_user), pool=D
         if duplicate:
             raise HTTPException(409, "This symbol already exists as an open holding. Use Buy More on the existing row instead.")
         async with conn.transaction():
-            row = await conn.fetchrow(
-                """
-                insert into holdings (portfolio_id, user_id, symbol, quantity, avg_buy_price, buy_date,
-                                       buy_date_confirmed, total_bought_quantity)
-                values ($1, $2, $3, $4, $5, $6, true, $4) returning *
-                """,
-                pid, user["id"], payload.symbol, payload.quantity, payload.avg_buy_price, payload.buy_date,
-            )
+            try:
+                row = await conn.fetchrow(
+                    """
+                    insert into holdings (portfolio_id, user_id, symbol, quantity, avg_buy_price, buy_date,
+                                           buy_date_confirmed, total_bought_quantity)
+                    values ($1, $2, $3, $4, $5, $6, true, $4) returning *
+                    """,
+                    pid, user["id"], payload.symbol, payload.quantity, payload.avg_buy_price, payload.buy_date,
+                )
+            except asyncpg.UniqueViolationError:
+                # Concurrent insert beat the duplicate pre-check (uq_holdings_open_symbol)
+                raise HTTPException(409, "This symbol already exists as an open holding. Use Buy More on the existing row instead.")
             await conn.execute(
                 """
                 insert into holding_transactions (holding_id, portfolio_id, symbol, txn_type, quantity, price, txn_date, charges, notes)
@@ -443,6 +565,19 @@ async def edit_holding(holding_id: int, payload: HoldingUpdate, user=Depends(cur
                     """,
                     holding_id, payload.quantity, payload.avg_buy_price, payload.buy_date,
                 )
+            elif payload.buy_date is not None:
+                # Correcting just the buy date must also reach the ledger, or
+                # performance-history reconstruction keeps using the old date.
+                # Only unambiguous with a single BUY lot — otherwise leave the
+                # ledger alone (it is the source of truth for multi-lot rows).
+                await conn.execute(
+                    """
+                    update holding_transactions set txn_date = $2
+                    where holding_id = $1 and txn_type = 'BUY'
+                      and (select count(*) from holding_transactions where holding_id = $1 and txn_type = 'BUY') = 1
+                    """,
+                    holding_id, payload.buy_date,
+                )
     d = as_dict(row)
     d["requires_confirmation"] = not d.pop("buy_date_confirmed")
     d["status_label"] = STATUS_LABELS.get(d["status"], d["status"])
@@ -465,10 +600,20 @@ async def buy_more(holding_id: int, payload: HoldingBuyMore, user=Depends(curren
             old_avg = Decimal(current["avg_buy_price"])
             new_qty = old_qty + payload.quantity
             new_avg = ((old_qty * old_avg) + (payload.quantity * payload.price)) / new_qty
-            sold_any = await has_sell_history(conn, holding_id)
-            new_status = determine_status(new_qty, sold_any)
             new_total_bought = Decimal(current["total_bought_quantity"]) + payload.quantity
-            new_buy_date = min(current["buy_date"], payload.buy_date) if current["buy_date"] else payload.buy_date
+
+            is_reentry = old_qty <= 0  # buying back into a fully-exited holding
+            if is_reentry:
+                # A fresh position: it starts on the new purchase date, at the
+                # new price, as ACTIVE. Prior sell history stays in the ledger
+                # (and in cumulative realized_pnl) but must not make this new
+                # lot look old ("days held") or partially exited.
+                new_status = "ACTIVE"
+                new_buy_date = payload.buy_date
+            else:
+                sold_any = await has_sell_history(conn, holding_id)
+                new_status = determine_status(new_qty, sold_any)
+                new_buy_date = min(current["buy_date"], payload.buy_date) if current["buy_date"] else payload.buy_date
 
             row = await conn.fetchrow(
                 """
@@ -478,11 +623,13 @@ async def buy_more(holding_id: int, payload: HoldingBuyMore, user=Depends(curren
                     total_bought_quantity = $5,
                     status = $6,
                     buy_date = $7,
+                    sell_date = case when $8 then null else sell_date end,
+                    sell_price = case when $8 then null else sell_price end,
                     updated_at = now()
                 where id = $1 and portfolio_id = $2
                 returning *
                 """,
-                holding_id, pid, new_qty, new_avg, new_total_bought, new_status, new_buy_date,
+                holding_id, pid, new_qty, new_avg, new_total_bought, new_status, new_buy_date, is_reentry,
             )
             await conn.execute(
                 """
@@ -663,13 +810,23 @@ async def import_holdings(file: UploadFile = File(...), user=Depends(current_use
                     """,
                     pid, user["id"], symbol, item.quantity, item.avg_buy_price, item.buy_date, not item.requires_confirmation, file.filename,
                 )
-                await conn.execute(
-                    """
-                    insert into holding_transactions (holding_id, portfolio_id, symbol, txn_type, quantity, price, txn_date, charges, notes)
-                    values ($1, $2, $3, 'BUY', $4, $5, $6, 0, $7)
-                    """,
-                    row["id"], pid, symbol, item.quantity, item.avg_buy_price, item.buy_date, f"Imported from {file.filename}",
-                )
+                if item.buy_date is not None:
+                    await conn.execute(
+                        """
+                        insert into holding_transactions
+                        (holding_id, portfolio_id, symbol, txn_type,
+                        quantity, price, txn_date, charges, notes)
+                        values ($1, $2, $3, 'BUY', $4, $5, $6, 0, $7)
+                        """,
+                        row["id"],
+                        pid,
+                        symbol,
+                        item.quantity,
+                        item.avg_buy_price,
+                        item.buy_date,
+                        f"Imported from {file.filename}",
+                    )
+                
             d = as_dict(row)
             d["requires_confirmation"] = not d.pop("buy_date_confirmed")
             imported.append(d)
@@ -706,6 +863,29 @@ async def ai_advisor(user=Depends(current_user), pool=Depends(get_pool)):
             "confidence": v.get("confidence", 50),
         })
     return {"data": data}
+
+
+@router.get("/holdings/{holding_id}/verdicts", summary="Verdict history for a holding (how the engine's call evolved)")
+async def holding_verdict_history(holding_id: int, limit: int = 90, user=Depends(current_user), pool=Depends(get_pool)):
+    async with pool.acquire() as conn:
+        pid = await ensure_portfolio(conn, user["id"])
+        holding = await conn.fetchrow("select id, symbol from holdings where id = $1 and portfolio_id = $2", holding_id, pid)
+        if not holding:
+            raise HTTPException(404, "Holding not found")
+        try:
+            rows = await conn.fetch(
+                """
+                select trade_date, verdict, confidence, position_score, gain_pct, reasons
+                from holding_verdicts
+                where holding_id = $1
+                order by trade_date desc
+                limit $2
+                """,
+                holding_id, min(max(limit, 1), 365),
+            )
+        except asyncpg.UndefinedTableError:
+            raise HTTPException(503, "Verdict history is not available yet — run sql/migration_v7_verdicts_watchlist.sql")
+    return {"symbol": holding["symbol"], "data": [as_dict(r) for r in rows]}
 
 
 @router.get("/holdings/{holding_id}/trendline", summary="Holding trendline from buy date to current/sell date")

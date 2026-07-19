@@ -91,6 +91,11 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 /* ── MAIN TWO-COLUMN ────────────────── */
 .main{display:flex;overflow:hidden;height:100%}
 .sidebar{width:240px;min-width:240px;background:var(--bg1);border-right:1px solid var(--border);overflow-y:auto;padding:16px 0;box-shadow: 1px 0 5px rgba(0,0,0,0.1);}
+.main.sb-hidden .sidebar{display:none}
+.wl-star{cursor:pointer;color:var(--t3);font-size:14px;margin-right:6px;transition:var(--tr)}
+.wl-star:hover{color:#f59e0b}
+.wl-star.on{color:#f59e0b}
+.sr-item.active{background:var(--bg2)}
 .content-area{flex:1;overflow-y:auto;position:relative;background:var(--bg0);}
 
 /* ── SIDEBAR ────────────────────────── */
@@ -374,7 +379,7 @@ html.light .scard{border-color:var(--border)}
     <div class="srch-wrap" id="srchWrap">
       <span class="srch-icon">⌕</span>
       <input class="srch-input" id="srchInput" type="text"
-             placeholder="Symbol or company…" autocomplete="off"/>
+             placeholder="Search symbol or company…  ( / )" autocomplete="off"/>
       <div class="srch-dd" id="srchDD"></div>
     </div>
     <button class="pb" id="xlBtn" onclick="downloadExcel()" style="font-size:11.5px;padding:6px 12px;background:var(--green-d);color:#fff;border:none;font-weight:600;" title="Download today's 12-day matrix as Excel">⬇ Excel</button>
@@ -494,7 +499,9 @@ html.light .scard{border-color:var(--border)}
         </select>
         <div class="vtoggle">
           <button class="active" id="btnTable">▤ Table</button>
+          <button id="btnWatch" onclick="toggleWatchMode()" title="Show only your watchlist">★ Watchlist</button>
         </div>
+        <button class="pb" onclick="toggleSidebar()" title="Show/hide the filter sidebar" style="margin-left:auto">⚟ Filters</button>
       </div>
       <div id="tableWrap"></div>
       <div id="pgnWrap"></div>
@@ -597,6 +604,8 @@ let GRP_DATA = {};
 let GRP_OPEN = {};
 let srchTimer = null;
 let AUTH_TOKEN = localStorage.getItem('tp_token') || '';
+let WATCHLIST = new Set();   // symbols the logged-in user has starred
+let WATCH_MODE = false;      // true = screener table shows only the watchlist
 
 // ── FORMAT HELPERS ──────────────────────────────────────────────
 const f1   = v => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(1);
@@ -791,9 +800,69 @@ function resetFilters() {
 }
 
 // ── SCREENER ─────────────────────────────────────────────────────
+// ── WATCHLIST ────────────────────────────────────────────────────
+async function loadWatchlistSet() {
+  if (!AUTH_TOKEN) return;
+  try {
+    const d = await apiFetch('/api/watchlist');
+    WATCHLIST = new Set((d.data || []).map(r => r.symbol));
+  } catch (e) { /* not logged in / migration pending — stars stay off */ }
+}
+
+async function toggleWatch(sym, ev) {
+  if (ev) ev.stopPropagation();
+  if (!AUTH_TOKEN) { toast('Log in (Portfolio page) to use the watchlist'); return; }
+  const watched = WATCHLIST.has(sym);
+  try {
+    await apiFetch('/api/watchlist/' + encodeURIComponent(sym), { method: watched ? 'DELETE' : 'POST' });
+    watched ? WATCHLIST.delete(sym) : WATCHLIST.add(sym);
+    document.querySelectorAll(`.wl-star[data-sym="${sym}"]`).forEach(el => {
+      el.classList.toggle('on', !watched);
+      el.textContent = watched ? '☆' : '★';
+    });
+    toast(watched ? `${sym} removed from watchlist` : `${sym} added to watchlist ★`);
+    if (WATCH_MODE) loadScreener();
+  } catch (e) { toast('Watchlist error: ' + e.message.slice(0, 120)); }
+}
+
+function starHtml(sym) {
+  const on = WATCHLIST.has(sym);
+  return `<span class="wl-star${on ? ' on' : ''}" data-sym="${sym}" title="Toggle watchlist" onclick="toggleWatch('${sym}', event)">${on ? '★' : '☆'}</span>`;
+}
+
+function toggleWatchMode() {
+  if (!AUTH_TOKEN && !WATCH_MODE) { toast('Log in (Portfolio page) to use the watchlist'); return; }
+  WATCH_MODE = !WATCH_MODE;
+  document.getElementById('btnWatch').classList.toggle('active', WATCH_MODE);
+  loadScreener();
+}
+
+function toggleSidebar() {
+  const main = document.querySelector('.main');
+  main.classList.toggle('sb-hidden');
+  localStorage.setItem('tp_sidebar_hidden', main.classList.contains('sb-hidden') ? '1' : '');
+}
+
 async function loadScreener() {
   loading('tableWrap');
   document.getElementById('pgnWrap').innerHTML = '';
+  if (WATCH_MODE) {
+    try {
+      const d = await apiFetch('/api/watchlist');
+      const rows = d.data || [];
+      WATCHLIST = new Set(rows.map(r => r.symbol));
+      document.getElementById('totalCount').textContent = rows.length + ' watched';
+      document.getElementById('tableWrap').innerHTML = rows.length
+        ? renderTable(rows)
+        : '<div class="empty"><div class="empty-icon">★</div><div>Your watchlist is empty — star any stock to track it here.</div></div>';
+      document.getElementById('tableWrap').querySelectorAll('tr[data-sym]').forEach(tr => {
+        tr.addEventListener('click', () => openDP(tr.dataset.sym));
+      });
+    } catch (e) {
+      document.getElementById('tableWrap').innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+    }
+    return;
+  }
   const f  = getFilters();
   const qs = buildQS(f, { sort_by: SORT_BY, order: SORT_ORD, page: PAGE, page_size: 50 });
   try {
@@ -839,7 +908,7 @@ function renderTable(rows) {
   </tr></thead>`;
   const body = rows.map(r => `
     <tr data-sym="${r.symbol}">
-      <td><div class="sym-cell">${r.symbol}</div>${capBadge(r.cap_category)}</td>
+      <td><div class="sym-cell">${starHtml(r.symbol)}${r.symbol}</div>${capBadge(r.cap_category)}</td>
       <td>
         <div class="name-cell" title="${r.company_name||''}">${r.company_name||''}</div>
         <span class="sec-tag">${r.sector||''}</span>
@@ -1214,7 +1283,7 @@ async function openDP(sym) {
       `<span class="mono">${inr(lat.close_price)}</span> <span class="${pCls(lat.chg_1d)} mono" style="font-size:16px;margin-left:8px;">${fPct(lat.chg_1d)}</span>`;
       
     document.getElementById('dpMeta').innerHTML =
-      `<span style="font-weight:600;color:var(--t1)">${info.sector||''}</span> ${capBadge(info.cap_category)} <span class="mono" style="margin-left:12px;color:var(--t2)">Vol: ${fNum(lat.total_trades)}</span>`;
+      `${starHtml(sym)}<span style="font-weight:600;color:var(--t1)">${info.sector||''}</span> ${capBadge(info.cap_category)} <span class="mono" style="margin-left:12px;color:var(--t2)">Vol: ${fNum(lat.total_trades)}</span>`;
       
     document.getElementById('dpMetrics').innerHTML = `
       <div class="mbox"><div class="mbox-l">Trending Days</div><div class="mbox-v lg">${tpill(lat.trending_days)}</div></div>
@@ -1439,10 +1508,36 @@ function toggleTheme() {
 }
 if (localStorage.getItem('tp_theme') === 'light') document.documentElement.classList.add('light');
 
+// ── KEYBOARD: "/" focuses search; arrows navigate results; Esc closes ──
+document.addEventListener('keydown', e => {
+  const input = document.getElementById('srchInput');
+  const dd = document.getElementById('srchDD');
+  if (e.key === '/' && document.activeElement !== input && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) {
+    e.preventDefault(); input.focus(); input.select();
+    return;
+  }
+  if (e.key === 'Escape') { dd.classList.remove('open'); closeDP(); return; }
+  if (document.activeElement !== input || !dd.classList.contains('open')) return;
+  const items = [...dd.querySelectorAll('.sr-item')];
+  if (!items.length) return;
+  const cur = items.findIndex(el => el.classList.contains('active'));
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const next = e.key === 'ArrowDown' ? Math.min(cur + 1, items.length - 1) : Math.max(cur - 1, 0);
+    items.forEach(el => el.classList.remove('active'));
+    items[next].classList.add('active');
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    (items[cur >= 0 ? cur : 0]).click();
+  }
+});
+
 // ── INIT ─────────────────────────────────────────────────────────
+if (localStorage.getItem('tp_sidebar_hidden') === '1') document.querySelector('.main').classList.add('sb-hidden');
 (async () => {
   await updateAuthUI();
   loadSectorList();
+  await loadWatchlistSet();
   await loadScreener();
   // Deep link from Portfolio (Capital Rotation / Opportunity Queue) straight to a stock's detail panel
   const deepLinkSymbol = new URLSearchParams(location.search).get('symbol');

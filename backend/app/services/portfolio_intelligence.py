@@ -332,6 +332,63 @@ async def fetch_previous_trade_date(conn, trade_date: datetime.date) -> Optional
     return row["trade_date"] if row else None
 
 
+async def fetch_rs_streaks(conn, symbols: list[str], trade_date: datetime.date,
+                           lookback_sessions: int = 120) -> dict[str, dict[str, Any]]:
+    """How long each symbol has been out- or underperforming the market.
+
+    Counts consecutive sessions, ending at `trade_date` and walking backwards,
+    in which rs_score stayed on the same side of 50 (>= 50 = outperforming).
+    A missing rs_score breaks the streak. Returns
+    {symbol: {"direction": "out"|"under", "days": n}} — symbols with no data
+    are simply absent.
+    """
+    if not symbols:
+        return {}
+    rows = await conn.fetch(
+        """
+        with ranked as (
+            select symbol, trade_date, rs_score,
+                   row_number() over (partition by symbol order by trade_date desc) as rn
+            from trend_results
+            where symbol = any($1::text[]) and trade_date <= $2
+        )
+        select symbol, trade_date, rs_score from ranked
+        where rn <= $3
+        order by symbol, trade_date desc
+        """,
+        symbols, trade_date, lookback_sessions,
+    )
+    streaks: dict[str, dict[str, Any]] = {}
+    current_symbol = None
+    direction = None
+    count = 0
+    done = False
+
+    def flush():
+        if current_symbol is not None and direction is not None and count > 0:
+            streaks[current_symbol] = {"direction": direction, "days": count}
+
+    for r in rows:
+        if r["symbol"] != current_symbol:
+            flush()
+            current_symbol, direction, count, done = r["symbol"], None, 0, False
+        if done:
+            continue
+        rs = r["rs_score"]
+        if rs is None:
+            done = True
+            continue
+        side = "out" if float(rs) >= 50 else "under"
+        if direction is None:
+            direction = side
+        if side != direction:
+            done = True
+            continue
+        count += 1
+    flush()
+    return streaks
+
+
 async def fetch_trend_snapshot(conn, symbols: list[str], trade_date: datetime.date) -> dict[str, dict]:
     if not symbols:
         return {}

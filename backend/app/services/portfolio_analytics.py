@@ -106,15 +106,20 @@ def concentration_risk(active_holdings: list[dict[str, Any]]) -> dict[str, Any]:
 def compute_peak_drawdowns(price_rows: list[dict[str, Any]], holdings: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
     """price_rows: [{"symbol", "trade_date", "close_price"}, ...] for all symbols
     involved, going back at least as far as the earliest buy_date.
-    Returns {holding_id: {"peak_price": float, "drawdown_from_peak_pct": float}}.
+    Returns {holding_id: {"peak_price": float, "drawdown_from_peak_pct": float,
+                          "days_below_cost_streak": int, "days_above_cost_streak": int}}.
+    Applies to every open holding (ACTIVE and PARTIAL alike) — a partially
+    sold position still has live exposure that a trailing stop must watch.
     """
     by_symbol: dict[str, list[tuple[date, float]]] = {}
     for pr in price_rows:
         by_symbol.setdefault(pr["symbol"], []).append((pr["trade_date"], float(pr["close_price"])))
+    for points in by_symbol.values():
+        points.sort()
 
     result: dict[int, dict[str, Any]] = {}
     for h in holdings:
-        if h.get("status") != "ACTIVE" or not h.get("buy_date") or h.get("current_price") is None:
+        if h.get("status") not in ("ACTIVE", "PARTIAL") or not h.get("buy_date") or h.get("current_price") is None:
             continue
         points = by_symbol.get(h["symbol"], [])
         relevant = [p for d, p in points if d >= h["buy_date"]]
@@ -122,9 +127,26 @@ def compute_peak_drawdowns(price_rows: list[dict[str, Any]], holdings: list[dict
             continue
         peak = max(relevant)
         current = float(h["current_price"])
-        if peak > 0:
-            result[h["id"]] = {
-                "peak_price": round(peak, 2),
-                "drawdown_from_peak_pct": round((peak - current) / peak * 100, 2),
-            }
+        if peak <= 0:
+            continue
+
+        # Trailing streak of closes below/above the holding's average cost —
+        # "how long has this been underwater" in the most literal sense.
+        below = above = 0
+        cost = float(h.get("avg_buy_price") or 0)
+        if cost > 0:
+            for close in reversed(relevant):
+                if close < cost and above == 0:
+                    below += 1
+                elif close >= cost and below == 0:
+                    above += 1
+                else:
+                    break
+
+        result[h["id"]] = {
+            "peak_price": round(peak, 2),
+            "drawdown_from_peak_pct": round((peak - current) / peak * 100, 2),
+            "days_below_cost_streak": below,
+            "days_above_cost_streak": above,
+        }
     return result

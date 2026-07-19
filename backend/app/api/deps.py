@@ -37,8 +37,12 @@ async def current_admin(authorization: str | None = Header(None), pool=Depends(g
     payload = decode_token(authorization.split(" ", 1)[1], expected_type="admin")
     if not payload:
         raise HTTPException(401, "Invalid or expired admin session")
+    try:
+        admin_id = int(payload["sub"])
+    except (KeyError, ValueError, TypeError):
+        raise HTTPException(401, "Invalid admin session")
     async with pool.acquire() as conn:
-        admin = await conn.fetchrow("select id, username, created_at from admins where id = $1", int(payload["sub"]))
+        admin = await conn.fetchrow("select id, username, created_at from admins where id = $1", admin_id)
     if not admin:
         raise HTTPException(401, "Admin not found")
     return dict(admin)

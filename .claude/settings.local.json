@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python.exe --version)",
+      "Bash(.venv/Scripts/python.exe -c \"import pytest\")",
+      "Bash(.venv/Scripts/python.exe -c \"import fastapi, asyncpg, pandas; print\\('deps ok'\\)\")",
+      "Bash(.venv/Scripts/python.exe -m pip install pytest -q)",
+      "Bash(../.venv/Scripts/python.exe -m pytest tests/ -q)",
+      "Bash(../.venv/Scripts/python.exe -c \"from app.main import app; print\\('app imports ok, routes:', len\\(app.routes\\)\\)\")",
+      "Bash(node -e ' *)"
+    ]
+  }
+}
