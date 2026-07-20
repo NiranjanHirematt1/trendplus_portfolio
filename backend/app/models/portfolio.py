@@ -30,6 +30,7 @@ class HoldingUpdate(BaseModel):
     avg_buy_price: Decimal | None = Field(None, gt=0)
     buy_date: date | None = None
     requires_confirmation: bool | None = None
+    notes: str | None = Field(None, max_length=2000)
 
 
 class HoldingBuyMore(BaseModel):

@@ -7,7 +7,21 @@
       "Bash(.venv/Scripts/python.exe -m pip install pytest -q)",
       "Bash(../.venv/Scripts/python.exe -m pytest tests/ -q)",
       "Bash(../.venv/Scripts/python.exe -c \"from app.main import app; print\\('app imports ok, routes:', len\\(app.routes\\)\\)\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(../.venv/Scripts/python.exe -c \"from app.main import app; print\\('routes:', len\\(app.routes\\)\\)\")",
+      "Bash(python -)",
+      "Bash(../.venv/Scripts/python.exe -c \"from app.main import app; print\\('app OK'\\)\")",
+      "Bash(tasklist //FI \"IMAGENAME eq python.exe\" //FO CSV)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(cat \"C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/4449a671-a1a4-42bf-91a8-08e908ec924d/scratchpad/tpdp_append.js\")",
+      "Bash(node -e \"new Function\\(require\\('fs'\\).readFileSync\\('frontend/shared.js','utf8'\\)\\); console.log\\('shared.js parses OK,', require\\('fs'\\).readFileSync\\('frontend/shared.js','utf8'\\).split\\('\\\\n'\\).length, 'lines'\\)\")",
+      "Bash(../.venv/Scripts/python.exe -c \"from app.main import app; print\\('app OK, routes:', len\\(app.routes\\)\\)\")",
+      "Bash(../.venv/Scripts/python.exe -m uvicorn app.main:app --port 8124)",
+      "Bash(curl -s http://localhost:8124/health)",
+      "Bash(curl -s http://localhost:8124/openapi.json)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const p=Object.keys\\(JSON.parse\\(d\\).paths\\);console.log\\('routes:', p.filter\\(x=>/benchmark|alerts|sparklines|transactions/.test\\(x\\)\\).join\\(', '\\)\\)}\\)\")",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //PID 23196)"
     ]
   }
 }

@@ -556,39 +556,10 @@ html.light .scard{border-color:var(--border)}
       <div id="ssGrid"><div class="ld"><div class="spin"></div> Loading…</div></div>
     </div>
 
-  </div></div></div><div class="dp" id="dp">
-  <div class="dp-hdr">
-    <div class="dp-hdr-info">
-      <a class="dp-sym" id="dpSym" href="#" target="_blank" rel="noopener"
-         title="Open in TradingView" style="text-decoration:none;cursor:pointer">—</a>
-      <div class="dp-name"  id="dpName"></div>
-      <div class="dp-price" id="dpPrice"></div>
-      <div id="dpMeta" style="font-size:12px;color:var(--t2);margin-top:6px"></div>
-    </div>
-    <button class="dp-close" onclick="closeDP()">✕</button>
-  </div>
-  <div class="dp-sec">
-    <div class="dp-sec-ttl">Key Metrics</div>
-    <div class="metric-grid" id="dpMetrics">
-      <div class="ld"><div class="spin"></div></div>
-    </div>
-  </div>
-  <div class="dp-sec">
-    <div class="dp-sec-ttl">MACD &amp; EMA</div>
-    <div class="metric-grid" id="dpMACDEMA"></div>
-  </div>
-  <div class="dp-sec">
-    <div class="dp-sec-ttl">12-Day Matrix <span style="font-size:11px;color:var(--t2);font-weight:400;text-transform:none;letter-spacing:0;">(download Excel for full matrix)</span></div>
-    <div class="mat-detail" id="dpMatrix"></div>
-  </div>
-  <div class="dp-sec" style="border-bottom:none;">
-    <div class="dp-sec-ttl">Sector Peers</div>
-    <div id="dpPeers"></div>
-  </div>
-</div>
-
+  </div></div></div>
 <div class="toast" id="toast"></div>
 
+<script src="./shared.js"></script>
 <script>
 'use strict';
 
@@ -691,40 +662,7 @@ function strHash(s) {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xfffffff; return h;
 }
 
-const SECTOR_MAP = {
-  "Agri - Animal Feed":"Agriculture","Agri - Edible Oil":"Agriculture","Agri - Misc":"Agriculture",
-  "Agri - Rice":"Agriculture","Agri - Sugar":"Agriculture","Agri - Tea/Coffee":"Agriculture",
-  "Agrichem - Fertilizers":"Agriculture","Agrichem - Protection":"Agriculture",
-  "Auto - 2W":"Auto & Ancillaries","Auto - CV":"Auto & Ancillaries","Auto - Misc":"Auto & Ancillaries",
-  "Auto - OEM Suppliers":"Auto & Ancillaries","Auto - PV/Trucks":"Auto & Ancillaries",
-  "Auto - Replacement":"Auto & Ancillaries","Auto - Tyres":"Auto & Ancillaries",
-  "Automobile and Auto Components":"Auto & Ancillaries",
-  "Financials - Private Bank":"Banking","Financials - PSU Bank":"Banking","Financials - Housing":"Banking",
-  "Engineering":"Capital Goods","Electronic - Equipment":"Capital Goods","Industrial - Bearings":"Capital Goods",
-  "Industrial - Consumables":"Capital Goods","Industrial - Pumps/Engines":"Capital Goods",
-  "Chemicals - Bulk":"Chemicals","Chemicals - Misc":"Chemicals","Chemicals - Petro":"Chemicals","Chemicals - Specialty":"Chemicals",
-  "Construction Materials":"Construction","Infra - Cement":"Construction","Infra - Ceramics":"Construction",
-  "Infra - Construction":"Construction","Infra - Diversified":"Construction","Infra - Granites/Marbles":"Construction","Infra - Plastic Pipes":"Construction",
-  "Consumption - Appliances":"Consumer Durables","Consumption - Electronics":"Consumer Durables","Consumption - Jewelry":"Consumer Durables",
-  "Consumption - Misc":"Consumer Durables","Consumption - Paints":"Consumer Durables","Consumption - Retail":"Consumer Durables",
-  "Leisure - Hotels":"Consumer Services","Leisure - Misc":"Consumer Services","Human Resources":"Consumer Services","Services":"Consumer Services",
-  "Defense - Misc":"Defence","Defense - Ship Building":"Defence","Defense - Technology":"Defence",
-  "Others":"Diversified",
-  "Fast Moving Consumer Goods":"FMCG","Beverages - Alcohol":"FMCG","Consumption - FMCG":"FMCG","Consumption - Dairy":"FMCG","Consumption - Personal":"FMCG","Forest Materials":"FMCG",
-  "Financials - AMC":"Financial Services","Financials - Broking":"Financial Services","Financials - Life":"Financial Services","Financials - MFI":"Financial Services",
-  "Financials - Misc":"Financial Services","Financials - NBFC":"Financial Services","Financials - Non-Life":"Financial Services","Financials - Ratings":"Financial Services",
-  "Healthcare":"Healthcare & Pharma","Healthcare - Biotech":"Healthcare & Pharma","Healthcare - Hospitals":"Healthcare & Pharma","Healthcare - Pharma":"Healthcare & Pharma",
-  "IT - Equipments":"Information Technology","IT - Product/Platform":"Information Technology","IT - Services":"Information Technology","IT - Software/Consulting":"Information Technology",
-  "Media - Films":"Media & Entertainment","Media - Publishing":"Media & Entertainment","Media - TV Broadcast":"Media & Entertainment","Media Entertainment & Publication":"Media & Entertainment",
-  "Metals - Aluminium":"Metals & Mining","Metals - Casting/Forging":"Metals & Mining","Metals - Copper":"Metals & Mining","Metals - Iron & Steel":"Metals & Mining",
-  "Metals - Misc":"Metals & Mining","Metals - Pipe & Tube":"Metals & Mining","Mining - Coal":"Metals & Mining",
-  "Oil and Gas":"Oil, Gas & Energy","Oil Gas & Consumable Fuels":"Oil, Gas & Energy","Petro - Refineries":"Oil, Gas & Energy",
-  "Paper":"Paper & Packaging","Packaging":"Paper & Packaging",
-  "Power - Equipment":"Power","Power - Misc":"Power","Power - Wiring":"Power","Utilities":"Power","Utility - Gas":"Power","Utility - Misc":"Power",
-  "Realty":"Real Estate","Telecommunication":"Telecom",
-  "Textile - Apparels":"Textiles","Textile - Misc":"Textiles","Textile - Spinning/Yarn":"Textiles","Textiles - Polyester":"Textiles","Leather Products":"Textiles",
-  "Transport - Logistics":"Transport & Logistics","Transport - Shipping":"Transport & Logistics",
-};
+const SECTOR_MAP = window.TP_SECTOR_MAP;
 function normSector(s){ s=(s||'').trim(); return SECTOR_MAP[s]||s; }
 
 // ── NAVIGATION ──────────────────────────────────────────────────
@@ -1247,96 +1185,15 @@ function collapseAll() { Object.keys(GRP_DATA).forEach(s => GRP_OPEN[s] = false)
 function updateAuthUI(){ const el=document.getElementById('authBtn'); if(el) el.textContent = AUTH_TOKEN ? 'Account' : 'Login'; }
 
 
-// ── DETAIL PANEL ─────────────────────────────────────────────────
-async function openDP(sym) {
-  const dp = document.getElementById('dp');
-  dp.classList.add('open');
-  ['dpSym','dpName','dpPrice','dpMeta','dpMetrics','dpMACDEMA','dpMatrix','dpPeers'].forEach(id => {
-    document.getElementById(id).innerHTML = id === 'dpMetrics' ? '<div class="ld"><div class="spin"></div></div>' : '';
-  });
-  
-  // 1. TRADINGVIEW LINK (Symbol)
-  document.getElementById('dpSym').textContent = sym;
-  const tvUrl = `https://www.tradingview.com/chart/?symbol=NSE%3A${sym}`;
-  const dpSymEl = document.getElementById('dpSym');
-  dpSymEl.style.cursor = 'pointer'; dpSymEl.style.color = 'var(--blue)';
-  dpSymEl.title = `Open ${sym} on TradingView ↗`;
-  dpSymEl.onclick = () => window.open(tvUrl, '_blank', 'noopener,noreferrer');
-  
-  try {
-    const d    = await apiFetch(`/api/symbol/${sym}`);
-    const info = d.info   || {};
-    const lat  = d.latest || {};
-    
-    // 2. SCREENER.IN LINK (Company Name)
-    // Placed here so it doesn't get overwritten by the fetch
-    const dpNameEl = document.getElementById('dpName');
-    const compName = info.company_name || sym;
-    const screenerId = sym;
-    dpNameEl.textContent = compName + ' ↗';
-    dpNameEl.style.cursor = 'pointer';
-    dpNameEl.style.transition = 'color 0.2s';
-    dpNameEl.title = `Open ${compName} on Screener ↗`;
-    dpNameEl.onclick = () => window.open(`https://www.screener.in/company/${screenerId}/`, '_blank', 'noopener,noreferrer');
+// ── DETAIL PANEL (unified TPDP component from shared.js) ─────────
+TPDP.init({
+  api: API,
+  getToken: () => AUTH_TOKEN,
+  headerExtra: sym => starHtml(sym),
+});
+function openDP(sym) { TPDP.open(sym); }
+function closeDP() { TPDP.close(); }
 
-    document.getElementById('dpPrice').innerHTML =
-      `<span class="mono">${inr(lat.close_price)}</span> <span class="${pCls(lat.chg_1d)} mono" style="font-size:16px;margin-left:8px;">${fPct(lat.chg_1d)}</span>`;
-      
-    document.getElementById('dpMeta').innerHTML =
-      `${starHtml(sym)}<span style="font-weight:600;color:var(--t1)">${info.sector||''}</span> ${capBadge(info.cap_category)} <span class="mono" style="margin-left:12px;color:var(--t2)">Vol: ${fNum(lat.total_trades)}</span>`;
-      
-    document.getElementById('dpMetrics').innerHTML = `
-      <div class="mbox"><div class="mbox-l">Trending Days</div><div class="mbox-v lg">${tpill(lat.trending_days)}</div></div>
-      <div class="mbox"><div class="mbox-l">Momentum Score</div><div class="mbox-v">${mbar(lat.momentum_score)}</div></div>
-      <div class="mbox"><div class="mbox-l">RS Score</div><div class="mbox-v" style="color:var(--blue)">${f1(lat.rs_score)}</div></div>
-      <div class="mbox"><div class="mbox-l">Weighted RPI</div><div class="mbox-v" style="color:#c084fc">${f1(lat.weighted_rpi)}</div></div>
-      <div class="mbox"><div class="mbox-l">RSI 14</div><div class="mbox-v ${Number(lat.rsi_14)>60?'pos':Number(lat.rsi_14)<40?'neg':''}">${f1(lat.rsi_14)}</div></div>
-      <div class="mbox"><div class="mbox-l">ADX 14</div><div class="mbox-v">${f1(lat.adx_14)}</div></div>
-      <div class="mbox"><div class="mbox-l">52W High %</div><div class="mbox-v ${pCls(lat.pct_from_high)}">${fPct(lat.pct_from_high)}</div></div>
-      <div class="mbox"><div class="mbox-l">12d Change</div><div class="mbox-v ${pCls(lat.chg_12d)}">${fPct(lat.chg_12d)}</div></div>`;
-      
-    document.getElementById('dpMACDEMA').innerHTML = `
-      <div class="mbox"><div class="mbox-l">MACD Hist</div><div class="mbox-v">${macdCell(lat.macd_hist)}</div></div>
-      <div class="mbox"><div class="mbox-l">MACD Line/Sig</div><div class="mbox-v mono" style="font-size:13px">${f2(lat.macd_line)} / ${f2(lat.macd_signal)}</div></div>
-      <div class="mbox"><div class="mbox-l">EMA 50</div><div class="mbox-v mono">${inr(lat.ema_50)}</div></div>
-      <div class="mbox"><div class="mbox-l">EMA 200</div><div class="mbox-v mono">${inr(lat.ema_200)}</div></div>
-      <div class="mbox span2"><div class="mbox-l">EMA Signal</div><div class="mbox-v">${emaBadge(lat.ema_signal)||'—'}</div></div>`;
-      
-    const pm  = lat.pct_matrix  || {};
-    const bm  = lat.bool_matrix || {};
-    const keys = Object.keys(pm).length ? Object.keys(pm).slice(0,12) : Object.keys(bm).slice(0,12);
-    const aboveEma = lat.ema_50 != null && lat.ema_200 != null && Number(lat.ema_50) > Number(lat.ema_200);
-    
-    if (keys.length) {
-      const sortedKeys = [...keys].sort().reverse();
-      document.getElementById('dpMatrix').innerHTML = sortedKeys.map(k => {
-        const raw = pm[k]; const v = bm[k];
-        let pv = raw != null ? ((Number(raw)>=0?'+':'')+Number(raw).toFixed(1)+'%') : '?';
-        const matCls = v === true ? (aboveEma ? 'mdc-dg' : 'mdc t') : v === false ? 'mdc f' : 'mdc n';
-        return `<div class="${matCls}"><div class="mdc-date">${k.slice(5)}</div><div class="mdc-val">${pv}</div></div>`;
-      }).join('');
-    } else {
-      document.getElementById('dpMatrix').innerHTML = '<div style="color:var(--t2);font-size:13px;padding:8px 0;font-weight:500;">No matrix stored. <button class="pb" onclick="downloadExcel()" style="font-size:12px;margin-left:8px;background:var(--blue-d);color:#fff;border-color:var(--blue-d);">⬇ Download Excel</button></div>';
-    }
-    
-    if (d.peers && d.peers.length) {
-      document.getElementById('dpPeers').innerHTML =
-        `<table class="peers-tbl"><thead><tr><th>Symbol</th><th>12d%</th><th>RSI</th><th>EMA</th><th>Mom</th></tr></thead>
-        <tbody>${d.peers.map(p=>`
-          <tr class="${p.symbol===sym?'self':''}">
-            <td onclick="openDP('${p.symbol}')">${p.symbol}</td>
-            <td class="${pCls(p.chg_12d)}" style="font-family:var(--font-mono);font-weight:600;">${fPct(p.chg_12d)}</td>
-            <td class="mono">${f1(p.rsi_14)}</td><td>${emaBadge(p.ema_signal)}</td><td>${mbar(p.momentum_score)}</td>
-          </tr>`).join('')}</tbody></table>`;
-    } else {
-      document.getElementById('dpPeers').innerHTML = '<div style="color:var(--t2);font-size:13px;padding:8px 0;font-weight:500;">No peers found</div>';
-    }
-  } catch(e) {
-    document.getElementById('dpMetrics').innerHTML = `<div style="color:var(--red);padding:12px;font-size:13px;background:var(--red-bg);border:1px solid var(--red-d);border-radius:var(--r2);">Error: ${e.message}</div>`;
-  }
-}
-
-function closeDP() { document.getElementById('dp').classList.remove('open'); }
 
 // ── EXCEL DOWNLOAD ───────────────────────────────────────────────
 async function downloadExcel() {

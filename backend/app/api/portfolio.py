@@ -19,6 +19,7 @@ from app.models.portfolio import (
     PortfolioCreate,
 )
 from app.services import ai_analysis
+from app.services import portfolio_alerts as pa
 from app.services import portfolio_history as ph
 from app.services import portfolio_intelligence as pi
 from app.services import verdict_engine
@@ -541,21 +542,35 @@ async def edit_holding(holding_id: int, payload: HoldingUpdate, user=Depends(cur
                 )
 
         confirmed_value = None if payload.requires_confirmation is None else (not payload.requires_confirmation)
+        # holdings.notes arrives with migration v8 — keep edits working until it runs
+        has_notes_column = bool(await conn.fetchval(
+            "select true from information_schema.columns where table_name = 'holdings' and column_name = 'notes'"
+        ))
+        if payload.notes is not None and not has_notes_column:
+            raise HTTPException(503, "Notes are not available yet — run sql/migration_v8_holding_notes.sql")
+        base_update = """
+            update holdings set
+                quantity = coalesce($3, quantity),
+                avg_buy_price = coalesce($4, avg_buy_price),
+                total_bought_quantity = coalesce($3, total_bought_quantity),
+                buy_date = coalesce($5, buy_date),
+                buy_date_confirmed = coalesce($6, buy_date_confirmed),{notes_clause}
+                updated_at = now()
+            where id = $1 and portfolio_id = $2
+            returning *
+        """
         async with conn.transaction():
-            row = await conn.fetchrow(
-                """
-                update holdings set
-                    quantity = coalesce($3, quantity),
-                    avg_buy_price = coalesce($4, avg_buy_price),
-                    total_bought_quantity = coalesce($3, total_bought_quantity),
-                    buy_date = coalesce($5, buy_date),
-                    buy_date_confirmed = coalesce($6, buy_date_confirmed),
-                    updated_at = now()
-                where id = $1 and portfolio_id = $2
-                returning *
-                """,
-                holding_id, pid, payload.quantity, payload.avg_buy_price, payload.buy_date, confirmed_value,
-            )
+            if has_notes_column:
+                row = await conn.fetchrow(
+                    base_update.format(notes_clause="\n                notes = coalesce($7, notes),"),
+                    holding_id, pid, payload.quantity, payload.avg_buy_price, payload.buy_date, confirmed_value,
+                    payload.notes,
+                )
+            else:
+                row = await conn.fetchrow(
+                    base_update.format(notes_clause=""),
+                    holding_id, pid, payload.quantity, payload.avg_buy_price, payload.buy_date, confirmed_value,
+                )
             if payload.quantity is not None or payload.avg_buy_price is not None:
                 await conn.execute(
                     """
@@ -773,6 +788,129 @@ async def performance_history(range: str = "3M", user=Depends(current_user), poo
         today = trade_date_row["trade_date"] if trade_date_row else date.today()
         series = await ph.get_performance_history(conn, pid, range_key, today)
     return {"range": range_key, "data": series}
+
+
+SPARKLINE_SESSIONS = {"12D": 12, "1M": 22, "6M": 126, "1Y": 252}
+
+
+@router.get("/sparklines", summary="Close-price mini-series for every open holding (trendline column)")
+async def sparklines(range: str = "1M", user=Depends(current_user), pool=Depends(get_pool)):
+    range_key = range.upper()
+    sessions = SPARKLINE_SESSIONS.get(range_key)
+    if not sessions:
+        raise HTTPException(422, "range must be one of: 12D, 1M, 6M, 1Y")
+    async with pool.acquire() as conn:
+        pid = await ensure_portfolio(conn, user["id"])
+        symbols = [r["symbol"] for r in await conn.fetch(
+            "select distinct symbol from holdings where portfolio_id = $1 and status in ('ACTIVE','PARTIAL') and not is_archived",
+            pid,
+        )]
+        if not symbols:
+            return {"range": range_key, "data": {}}
+        rows = await conn.fetch(
+            """
+            with ranked as (
+                select symbol, trade_date, close_price,
+                       row_number() over (partition by symbol order by trade_date desc) as rn
+                from price_history
+                where symbol = any($1::text[])
+            )
+            select symbol, trade_date, close_price from ranked
+            where rn <= $2
+            order by symbol, trade_date
+            """,
+            symbols, sessions,
+        )
+    data: dict[str, dict] = {}
+    for r in rows:
+        entry = data.setdefault(r["symbol"], {"closes": [], "dates": []})
+        entry["closes"].append(num(r["close_price"]))
+        entry["dates"].append(str(r["trade_date"]))
+    for entry in data.values():
+        closes = entry["closes"]
+        entry["chg_pct"] = round((closes[-1] - closes[0]) / closes[0] * 100, 2) if len(closes) > 1 and closes[0] else None
+    return {"range": range_key, "data": data}
+
+
+@router.get("/alerts", summary="Portfolio alerts: circuit/green/red streaks, gaps, 52W extremes, breakouts, ATR, drawdowns, EMA/RSI breaks, RS/momentum shifts, verdict changes, allocation limits")
+async def portfolio_alerts(
+    risk_limit: float = pa.DEFAULT_RISK_LIMIT_PCT,
+    target_alloc: float = pa.DEFAULT_TARGET_ALLOC_PCT,
+    min_alloc: float = pa.DEFAULT_MIN_ALLOC_PCT,
+    user=Depends(current_user), pool=Depends(get_pool),
+):
+    for name, v in (("risk_limit", risk_limit), ("target_alloc", target_alloc)):
+        if not (1 <= v <= 100):
+            raise HTTPException(422, f"{name} must be between 1 and 100")
+    if not (0 <= min_alloc <= 100):
+        raise HTTPException(422, "min_alloc must be between 0 and 100")
+    empty_counts = {s: 0 for s in pa.SEVERITY_ORDER}
+    async with pool.acquire() as conn:
+        pid = await ensure_portfolio(conn, user["id"])
+        active = await enriched_holdings(conn, pid, scope="open")
+        if not active:
+            return {"data": [], "counts": empty_counts}
+        symbols = [h["symbol"] for h in active]
+        trade_date_row = await conn.fetchrow("select trade_date from v_latest_date")
+        trade_date = trade_date_row["trade_date"] if trade_date_row else None
+
+        ohlc = await pa.fetch_ohlc_history(conn, symbols)
+        trend_levels = await pa.fetch_trend_levels(conn, symbols, trade_date)
+        trend_prev = await pa.fetch_trend_previous(conn, symbols, trade_date)
+        prev_verdicts = await pa.fetch_previous_verdicts(conn, [h["id"] for h in active], trade_date)
+        volume_ratios = await pi.fetch_volume_ratios(conn, symbols, trade_date) if trade_date else {}
+        concentration = concentration_risk(active)
+
+    alerts = pa.build_alerts(active, ohlc, trend_levels, trend_prev, volume_ratios,
+                             concentration, prev_verdicts, risk_limit, target_alloc, min_alloc)
+    counts = dict(empty_counts)
+    for a in alerts:
+        counts[a["severity"]] += 1
+    return {"date": str(trade_date) if trade_date else None, "risk_limit": risk_limit,
+            "target_alloc": target_alloc, "min_alloc": min_alloc, "counts": counts, "data": alerts}
+
+
+@router.get("/benchmark", summary="Market-average daily returns for portfolio-vs-market comparison")
+async def market_benchmark_series(range: str = "3M", user=Depends(current_user), pool=Depends(get_pool)):
+    range_key = range.upper()
+    if range_key not in ph.RANGE_DAYS:
+        raise HTTPException(422, "range must be one of: 1M, 3M, 6M, 1Y, ALL")
+    days = ph.RANGE_DAYS[range_key]
+    async with pool.acquire() as conn:
+        await ensure_portfolio(conn, user["id"])
+        rows = await conn.fetch(
+            """
+            select trade_date, avg(chg_1d) as mkt_chg
+            from trend_results
+            where ($1::int is null or trade_date >= current_date - $1::int)
+            group by trade_date
+            order by trade_date
+            """,
+            days,
+        )
+    return {"range": range_key,
+            "data": [{"date": str(r["trade_date"]), "mkt_chg": num(r["mkt_chg"])} for r in rows]}
+
+
+@router.get("/transactions", summary="Account-level transaction ledger across all holdings")
+async def all_transactions(limit: int = 200, offset: int = 0, user=Depends(current_user), pool=Depends(get_pool)):
+    limit = min(max(limit, 1), 500)
+    async with pool.acquire() as conn:
+        pid = await ensure_portfolio(conn, user["id"])
+        rows = await conn.fetch(
+            """
+            select t.id, t.holding_id, t.symbol, t.txn_type, t.quantity, t.price, t.txn_date,
+                   t.charges, t.realized_pnl, t.notes, t.created_at, s.company_name
+            from holding_transactions t
+            left join symbols s on s.symbol = t.symbol
+            where t.portfolio_id = $1
+            order by t.txn_date desc, t.id desc
+            limit $2 offset $3
+            """,
+            pid, limit, max(offset, 0),
+        )
+        total = await conn.fetchval("select count(*) from holding_transactions where portfolio_id = $1", pid)
+    return {"total": total, "data": [as_dict(r) for r in rows]}
 
 
 @router.post("/import", summary="Import portfolio holdings from broker CSV/XLS/XLSX")
