@@ -37,6 +37,11 @@ from __future__ import annotations
 import datetime
 from typing import Any, Optional
 
+# ── Indian equity capital-gains rates (FY 2024-25 onwards) ─────────────
+STCG_RATE = 0.20            # short-term (held ≤ 365 days), Sec 111A
+LTCG_RATE = 0.125           # long-term (held > 365 days), Sec 112A
+LTCG_EXEMPTION_INR = 125_000.0  # annual LTCG exemption
+
 # ── Weights for the Position Score engine (Part 2 of the spec) ─────────
 WEIGHTS = {
     "momentum": 0.25,
@@ -261,6 +266,45 @@ def calculate_portfolio_health(
         "alpha_vs_benchmark": alpha_vs_benchmark,
         "win_rate": round(win_rate, 1),
         "average_position_score": round(average_position_score, 1),
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  PART 3b — Tax estimate (unrealized STCG/LTCG on open positions)
+# ══════════════════════════════════════════════════════════════════════
+
+def estimate_taxes(active: list[dict[str, Any]]) -> dict[str, Any]:
+    """Estimated capital-gains tax if every open position were sold today.
+    Splits unrealized P/L into short-term (days_held ≤ 365) and long-term
+    (> 365) buckets — the same days_held the dead-money check uses. Losses
+    net against gains within each bucket but are not carried across buckets
+    (a deliberate simplification, called out in the disclaimer)."""
+    stcg_gain = sum(
+        float(h.get("unrealized_pnl") or 0)
+        for h in active if (h.get("days_held") or 0) <= 365
+    )
+    ltcg_gain = sum(
+        float(h.get("unrealized_pnl") or 0)
+        for h in active if (h.get("days_held") or 0) > 365
+    )
+    stcg_tax = max(stcg_gain, 0) * STCG_RATE
+    ltcg_taxable = max(ltcg_gain, 0)
+    exemption_used = min(ltcg_taxable, LTCG_EXEMPTION_INR)
+    ltcg_tax = (ltcg_taxable - exemption_used) * LTCG_RATE
+    return {
+        "stcg_unrealized_gain": round(stcg_gain, 2),
+        "estimated_stcg_tax": round(stcg_tax, 2),
+        "stcg_rate_pct": round(STCG_RATE * 100, 2),
+        "ltcg_unrealized_gain": round(ltcg_gain, 2),
+        "ltcg_exemption_used": round(exemption_used, 2),
+        "estimated_ltcg_tax": round(ltcg_tax, 2),
+        "ltcg_rate_pct": round(LTCG_RATE * 100, 2),
+        "estimated_total_tax_if_sold_today": round(stcg_tax + ltcg_tax, 2),
+        "disclaimer": (
+            "Approximate. Ignores realized gains already booked this FY, cess/surcharge, "
+            "cross-bucket loss set-off, grandfathering and charges — consult your broker's "
+            "capital-gains statement for filing."
+        ),
     }
 
 

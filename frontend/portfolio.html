@@ -96,9 +96,10 @@ a{color:inherit}
 .btn-block{width:100%}
 
 /* ── Layout ─────────────────────────────────────────────────────── */
-.wrap{max-width:1560px;margin:0 auto;padding:12px 16px 64px}
+.wrap{max-width:min(1720px,96vw);margin:0 auto;padding:12px 16px 64px}
 .grid-main{display:grid;grid-template-columns:1fr 340px;gap:12px;align-items:start}
 @media(max-width:1100px){.grid-main{grid-template-columns:1fr}}
+@media(min-width:1600px){.grid-main{grid-template-columns:1fr 400px;gap:16px}.grid-2{gap:16px}}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
 @media(max-width:900px){.grid-2{grid-template-columns:1fr}}
 
@@ -110,11 +111,11 @@ a{color:inherit}
 
 /* ── Command bar ────────────────────────────────────────────────── */
 .cmdbar{display:flex;background:var(--bg1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow-x:auto}
-.cmd{padding:9px 16px;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0}
+.cmd{padding:13px 20px;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0;flex-grow:1}
 .cmd:last-child{border-right:none}
-.cmd .l{font-size:9.5px;color:var(--t3);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:3px}
-.cmd .v{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:16px;font-weight:700;line-height:1.2}
-.cmd .s{font-family:var(--font-mono);font-size:10.5px;margin-left:4px;font-weight:600}
+.cmd .l{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:5px}
+.cmd .v{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:19px;font-weight:700;line-height:1.2}
+.cmd .s{font-family:var(--font-mono);font-size:11.5px;margin-left:4px;font-weight:600}
 .cmd.today-pos{background:linear-gradient(180deg,rgba(16,185,129,0.10),transparent)}
 .cmd.today-neg{background:linear-gradient(180deg,rgba(239,68,68,0.10),transparent)}
 .cmd .sym{cursor:pointer}
@@ -428,7 +429,8 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
 
   <!-- Missing purchase dates (only when needed) -->
   <section class="panel hidden" id="missingDatesPanel">
-    <div class="phead"><span class="ptitle">Purchase date missing</span><span class="pnote" style="padding:0">Set dates for imported holdings to enable performance tracking.</span></div>
+    <div class="phead"><span class="ptitle">Purchase date missing</span><span class="pnote" style="padding:0">Set dates for imported holdings to enable performance tracking.</span>
+      <div class="pactions"><button class="tb-btn" id="mdToggleBtn" onclick="toggleMissingDates()">Hide</button></div></div>
     <div id="missingDates"></div>
   </section>
 
@@ -807,6 +809,7 @@ function renderCommandBar(summary) {
     ['XIRR', `<span class="${pCls(c.xirr_pct)}">${c.xirr_pct != null ? fPct(c.xirr_pct) : '—'}</span>`, ''],
     ['Invested', `<span>${inr0(c.total_investment)}</span>`, ''],
     ['Positions', `<span>${c.number_of_holdings ?? 0}</span>`, ''],
+    ['Won / Lost', `<span class="pos">${c.winning_holdings ?? 0}</span><span style="color:var(--t3)"> / </span><span class="neg">${c.losing_holdings ?? 0}</span>`, ''],
     ['Win rate', `<span>${winRate != null ? f1(winRate) + '%' : '—'}</span>`, ''],
   ];
   if (best) cells.push(['Best', `<span class="sym pos" onclick="TPDP.open('${best.symbol}')">${best.symbol}</span><span class="s pos">${fPct(best.gain_pct)}</span>`, '']);
@@ -881,6 +884,8 @@ const COLS = [
     sv: h => (h.company_name || '').toLowerCase() },
   { key:'quantity', label:'Qty', w:74, align:'r', render: h => `<span class="mono">${fNum(h.quantity)}</span>`, sv: h => Number(h.quantity) || 0 },
   { key:'avg_buy_price', label:'Avg', w:92, align:'r', render: h => `<span class="mono">${inr(h.avg_buy_price)}</span>`, sv: h => Number(h.avg_buy_price) || 0 },
+  { key:'buy_date', label:'Buy Date', w:98,
+    render: h => `<span class="mono text-muted">${h.buy_date || '—'}</span>`, sv: h => h.buy_date || '' },
   { key:'current_price', label:'LTP', w:92, align:'r', render: h => `<span class="mono">${inr(h.current_price)}</span>`, sv: h => Number(h.current_price) || 0 },
   { key:'today_change', label:"Today's P&L", w:110, align:'r',
     render: h => `<span class="dualcell"><span class="a mono ${pCls(h.today_change)}">${h.today_change != null ? inr0(h.today_change) : '—'}</span><span class="b mono ${pCls(h.today_change_pct)}">${fPct(h.today_change_pct)}</span></span>`,
@@ -921,7 +926,7 @@ const COLS = [
       <button class="del" onclick="event.stopPropagation();openDeleteModal(${h.id})">Del</button></span>` },
 ];
 const COLS_BY_KEY = Object.fromEntries(COLS.map(c => [c.key, c]));
-const COL_STORE_KEY = 'tp_pf_cols_v2';
+const COL_STORE_KEY = 'tp_pf_cols_v3'; // v3: buy_date column added mid-model (saved v2 orders would misplace it)
 let colState = loadColState();
 
 function loadColState() {
@@ -1594,7 +1599,7 @@ async function loadAnalytics() {
   renderAnalyticsPanel();
 }
 function renderAnTabs() {
-  const tabs = [['returns', 'Returns'], ['benchmark', 'vs Market'], ['distribution', 'Distribution'], ['risk', 'Risk']];
+  const tabs = [['returns', 'Returns'], ['benchmark', 'vs Market'], ['distribution', 'Distribution'], ['risk', 'Risk'], ['tax', 'Tax']];
   document.getElementById('anTabs').innerHTML = tabs.map(([k, l]) =>
     `<button class="${AN_TAB === k ? 'active' : ''}" onclick="setAnTab('${k}')">${l}</button>`).join('');
 }
@@ -1603,11 +1608,11 @@ function setAnTab(k) { AN_TAB = k; localStorage.setItem('tp_an_tab', k); renderA
 function renderAnalyticsPanel() {
   renderAnTabs();
   const body = document.getElementById('anBody');
-  const fns = { returns: anReturns, benchmark: anBenchmark, distribution: anDistribution, risk: anRisk };
+  const fns = { returns: anReturns, benchmark: anBenchmark, distribution: anDistribution, risk: anRisk, tax: anTax };
   body.innerHTML = (fns[AN_TAB] || anReturns)();
   // draw canvases after DOM insert
   requestAnimationFrame(() => {
-    const draw = { returns: drawAnReturns, benchmark: drawAnBenchmark, distribution: null, risk: drawAnRisk }[AN_TAB];
+    const draw = { returns: drawAnReturns, benchmark: drawAnBenchmark, distribution: null, risk: drawAnRisk, tax: null }[AN_TAB];
     if (draw) draw();
   });
 }
@@ -1747,6 +1752,35 @@ function anDistribution() {
       <div>
         <div class="an-ttl">P&L attribution — top movers</div>${attrHtml || '<div class="an-note">No P&L yet.</div>'}
         <div class="an-ttl" style="margin-top:16px">Sector performance (today · overall)</div>${secHtml}
+      </div>
+    </div>`;
+}
+
+function anTax() {
+  const t = LAST_SUMMARY && LAST_SUMMARY.tax_estimate;
+  const ph = (LAST_SUMMARY && LAST_SUMMARY.portfolio_health) || {};
+  if (!t) return '<div class="an-note">Tax estimate unavailable — needs open holdings with buy dates.</div>';
+  const row = (label, val, cls = '') =>
+    `<div class="hist-bar" style="grid-template-columns:1fr auto">
+       <span style="color:var(--t1)">${label}</span>
+       <span class="mono text-right ${cls}">${val}</span>
+     </div>`;
+  return `
+    <div class="an-grid">
+      <div>
+        <div class="an-ttl">Tax if sold today (unrealized, open positions)</div>
+        ${row('Short-term gains (held ≤ 365d)', inr0(t.stcg_unrealized_gain), pCls(t.stcg_unrealized_gain))}
+        ${row(`Estimated STCG tax @ ${t.stcg_rate_pct}%`, inr0(t.estimated_stcg_tax))}
+        ${row('Long-term gains (held > 365d)', inr0(t.ltcg_unrealized_gain), pCls(t.ltcg_unrealized_gain))}
+        ${row('LTCG exemption used (of ₹1.25L)', inr0(t.ltcg_exemption_used))}
+        ${row(`Estimated LTCG tax @ ${t.ltcg_rate_pct}%`, inr0(t.estimated_ltcg_tax))}
+        ${row('<b>Total estimated tax</b>', `<b>${inr0(t.estimated_total_tax_if_sold_today)}</b>`)}
+        <div class="an-note">${esc(t.disclaimer || '')}</div>
+      </div>
+      <div>
+        <div class="an-ttl">Return vs market</div>
+        ${row('Alpha vs market (12-day, weighted)', ph.alpha_vs_benchmark != null ? fPct(ph.alpha_vs_benchmark) : '—', pCls(ph.alpha_vs_benchmark))}
+        <div class="an-note">Positive alpha means your open holdings outpaced the equal-weighted average of every tracked stock over the last 12 sessions.</div>
       </div>
     </div>`;
 }
@@ -1946,10 +1980,21 @@ async function importPortfolio() {
     input.value = ''; closeAddModal(); loadAll();
   } catch (e) { toast(cleanErr(e.message), 7000); }
 }
+let MD_COLLAPSED = localStorage.getItem('tp_md_collapsed') === '1';
+function toggleMissingDates() {
+  MD_COLLAPSED = !MD_COLLAPSED;
+  localStorage.setItem('tp_md_collapsed', MD_COLLAPSED ? '1' : '0');
+  applyMissingDatesCollapsed();
+}
+function applyMissingDatesCollapsed() {
+  document.getElementById('missingDates').classList.toggle('hidden', MD_COLLAPSED);
+  document.getElementById('mdToggleBtn').textContent = MD_COLLAPSED ? 'Show' : 'Hide';
+}
 function renderMissingDates(rows) {
   const panel = document.getElementById('missingDatesPanel');
   if (!rows.length) { panel.classList.add('hidden'); return; }
   panel.classList.remove('hidden');
+  applyMissingDatesCollapsed();
   document.getElementById('missingDates').innerHTML = rows.map(h => `
     <div style="display:grid;grid-template-columns:120px 1fr auto;gap:12px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border)">
       <strong class="mono">${h.symbol}</strong>

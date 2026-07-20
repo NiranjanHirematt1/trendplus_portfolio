@@ -308,7 +308,8 @@ window.TPDP = (function () {
 .dp-hdr-info{flex:1;min-width:0}
 .dp-sym{font-family:var(--font-mono);font-size:21px;font-weight:700;color:var(--t0);display:inline-flex;align-items:center;gap:10px;text-decoration:none;cursor:pointer}
 .dp-sym:hover{color:var(--blue)}
-.dp-name{font-size:12px;color:var(--t1);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}
+.dp-name{display:block;font-size:12px;color:var(--t1);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;text-decoration:none;cursor:pointer}
+.dp-name:hover{color:var(--blue)}
 .dp-price-row{display:flex;align-items:baseline;gap:10px;margin-top:5px}
 .dp-price{font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--t0)}
 .dp-close{background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:5px 11px;font-size:13px;flex-shrink:0;cursor:pointer}
@@ -403,7 +404,7 @@ window.TPDP = (function () {
     <div class="dp-hdr-row">
       <div class="dp-hdr-info">
         <a class="dp-sym" id="dpSym" target="_blank" rel="noopener" title="Open in TradingView">—</a>
-        <div class="dp-name" id="dpName"></div>
+        <a class="dp-name" id="dpName" target="_blank" rel="noopener" title="Open in Screener.in"></a>
         <div class="dp-price-row"><span class="dp-price" id="dpPrice"></span><span id="dpChg" class="mono" style="font-size:14px"></span></div>
         <div id="dpMeta" style="font-size:11.5px;color:var(--t2);margin-top:4px"></div>
         <div class="dp-ownstrip" id="dpOwnStrip"></div>
@@ -445,7 +446,9 @@ window.TPDP = (function () {
     const symEl = document.getElementById('dpSym');
     symEl.textContent = currentSym;
     symEl.href = 'https://www.tradingview.com/chart/?symbol=NSE%3A' + encodeURIComponent(currentSym);
-    document.getElementById('dpName').textContent = info.company_name || '';
+    const nameEl = document.getElementById('dpName');
+    nameEl.textContent = info.company_name || '';
+    nameEl.href = 'https://www.screener.in/company/' + encodeURIComponent(currentSym) + '/';
     document.getElementById('dpPrice').textContent = lat.close_price != null ? inr(lat.close_price) : '—';
     const chgEl = document.getElementById('dpChg');
     chgEl.textContent = fPct(lat.chg_1d);

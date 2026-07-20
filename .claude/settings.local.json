@@ -21,7 +21,9 @@
       "Bash(curl -s http://localhost:8124/openapi.json)",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const p=Object.keys\\(JSON.parse\\(d\\).paths\\);console.log\\('routes:', p.filter\\(x=>/benchmark|alerts|sparklines|transactions/.test\\(x\\)\\).join\\(', '\\)\\)}\\)\")",
       "Bash(netstat -ano)",
-      "Bash(taskkill //F //PID 23196)"
+      "Bash(taskkill //F //PID 23196)",
+      "Bash(node --check frontend/shared.js)",
+      "Bash(../.venv/Scripts/python.exe -c \"from app.api import portfolio; from app.services import portfolio_intelligence as pi; print\\('import OK'\\); print\\(pi.estimate_taxes\\([{'unrealized_pnl': 300000, 'days_held': 400}, {'unrealized_pnl': 20000, 'days_held': 30}]\\)\\)\")"
     ]
   }
 }

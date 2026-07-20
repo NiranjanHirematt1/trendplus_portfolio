@@ -224,7 +224,7 @@ async def portfolio_summary(user=Depends(current_user), pool=Depends(get_pool)):
             "profit_loss": unrealized_pnl,
         },
         "risk": concentration,
-        "tax_estimate": None,
+        "tax_estimate": pi.estimate_taxes(active),
         "top_gainers": sorted(active, key=lambda r: float(r.get("gain_pct") or 0), reverse=True)[:5],
         "top_losers": sorted(active, key=lambda r: float(r.get("gain_pct") or 0))[:5],
         "winners_vs_losers": {
