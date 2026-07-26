@@ -9,18 +9,24 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg0:#09090b; --bg1:#111115; --bg2:#18181b; --bg3:#27272a; --bg4:#3f3f46;
-  --border:#27272a; --border2:#3f3f46;
-  --t0:#ffffff; --t1:#f4f4f5; --t2:#a1a1aa; --t3:#71717a;
+  /* Environment — warm-charcoal terminal, distinct elevation roles (not a flat ramp) */
+  --bg0:#0c0b0a; --bg1:#15130f; --bg2:#1d1a15; --bg3:#232019; --bg4:#3d382e;
+  --border:#2b271f; --border2:#3d382e;
+  --raise-hl:rgba(255,250,240,0.05);   /* top edge-light on lifted surfaces */
+  --t0:#f7f5f1; --t1:#e4e0d8; --t2:#a8a196; --t3:#78716a;
+  /* Signal — the only chroma on screen. green/red are DATA; amber is the one attention voice */
   --green:#10b981; --green-d:#059669; --green-bg:rgba(16,185,129,0.15);
-  --red:#ef4444; --red-d:#dc2626; --red-bg:rgba(239,68,68,0.15);
-  --blue:#3b82f6; --blue-d:#2563eb; --blue-bg:rgba(59,130,246,0.15);
-  --amber:#f59e0b; --amber-bg:rgba(245,158,11,0.15);
+  --red:#f04438; --red-d:#d92d20; --red-bg:rgba(240,68,56,0.15);
+  /* --blue is retired as a hue: remapped to the amber brand/interactive voice so existing
+     interactive elements reskin automatically. HOLD/Moderate/medium are neutralised below. */
+  --blue:#e8a838; --blue-d:#b7841f; --blue-bg:rgba(232,168,56,0.14);
+  --amber:#f0a92e; --amber-bg:rgba(240,169,46,0.15);
+  --flash-up:rgba(16,185,129,0.24); --flash-dn:rgba(240,68,56,0.24);
   --font-mono:'JetBrains Mono',monospace;
   --font:'Inter',sans-serif;
   --r:6px; --tr:120ms ease;
   --shadow-sm:0 1px 2px rgba(0,0,0,0.4);
-  --shadow-md:0 8px 24px rgba(0,0,0,0.5);
+  --shadow-md:0 12px 34px rgba(0,0,0,0.6);
 }
 html{font-size:13px;background:var(--bg0);color:var(--t0);font-family:var(--font);-webkit-font-smoothing:antialiased}
 body{min-height:100vh}
@@ -36,6 +42,26 @@ a{color:inherit}
 .pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--t2)}
 .text-right{text-align:right!important}.text-muted{color:var(--t3)!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ── Signature: tape-flash ──────────────────────────────────────────
+   direction-of-change wash on a value when data reloads. box-shadow inset
+   overlays the cell without disturbing its own background (hover, tints). */
+@keyframes tp-flash-up{0%{box-shadow:inset 0 0 0 999px var(--flash-up)}100%{box-shadow:inset 0 0 0 999px transparent}}
+@keyframes tp-flash-dn{0%{box-shadow:inset 0 0 0 999px var(--flash-dn)}100%{box-shadow:inset 0 0 0 999px transparent}}
+.tp-fu{animation:tp-flash-up .75s ease-out}
+.tp-fd{animation:tp-flash-dn .75s ease-out}
+.cmd .v.tp-fu,.cmd .v.tp-fd{border-radius:4px}
+/* ── Entrance: one orchestrated settle on first dashboard load ─────── */
+@keyframes tp-rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+.tp-stagger>*{animation:tp-rise .5s cubic-bezier(0.22,0.61,0.36,1) both}
+.tp-stagger>*:nth-child(1){animation-delay:.02s}
+.tp-stagger>*:nth-child(2){animation-delay:.07s}
+.tp-stagger>*:nth-child(3){animation-delay:.12s}
+.tp-stagger>*:nth-child(4){animation-delay:.17s}
+.tp-stagger>*:nth-child(5){animation-delay:.22s}
+.tp-stagger>*:nth-child(6){animation-delay:.27s}
+.tp-stagger>*:nth-child(7){animation-delay:.32s}
+.tp-stagger>*:nth-child(n+8){animation-delay:.37s}
 
 /* ── Topbar ─────────────────────────────────────────────────────── */
 .topbar{height:48px;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:14px;position:sticky;top:0;z-index:100}
@@ -68,7 +94,7 @@ a{color:inherit}
 .auth-choice-btn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:18px 20px;border-radius:10px;text-align:left;transition:var(--tr)}
 .auth-choice-btn .ac-title{font-size:14px;font-weight:600;color:var(--t0);margin-bottom:4px}
 .auth-choice-btn .ac-sub{font-size:12px;color:var(--t3)}
-.auth-choice-btn.primary{background:var(--blue-bg);border:1px solid rgba(59,130,246,0.3)}
+.auth-choice-btn.primary{background:var(--blue-bg);border:1px solid rgba(232,168,56,0.32)}
 .auth-choice-btn.primary:hover{border-color:var(--blue)}
 .auth-choice-btn.ghost{background:var(--bg2);border:1px solid var(--border)}
 .auth-choice-btn.ghost:hover{border-color:var(--t2)}
@@ -81,7 +107,7 @@ a{color:inherit}
 
 /* ── Forms & buttons ────────────────────────────────────────────── */
 .finput{background:var(--bg0);border:1px solid var(--border)!important;border-radius:var(--r);padding:9px 11px;color:var(--t0);font-size:13px;width:100%;transition:var(--tr)}
-.finput:focus{border-color:var(--blue)!important;box-shadow:0 0 0 3px rgba(59,130,246,0.15)}
+.finput:focus{border-color:var(--blue)!important;box-shadow:0 0 0 3px rgba(232,168,56,0.18)}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
 .field label,.pf-field label{font-size:11px;color:var(--t2);font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
 .pf-field{display:flex;flex-direction:column;gap:6px}
@@ -109,17 +135,34 @@ a{color:inherit}
 .pactions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pnote{font-size:12px;color:var(--t3);padding:10px 12px}
 
-/* ── Command bar ────────────────────────────────────────────────── */
-.cmdbar{display:flex;background:var(--bg1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow-x:auto}
-.cmd{padding:13px 20px;border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0;flex-grow:1}
-.cmd:last-child{border-right:none}
+/* ── Command bar (tiered: hero · performance · details) ─────────── */
+.cmdbar{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px;align-items:stretch}
+.cmd{padding:13px 20px;white-space:nowrap}
 .cmd .l{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-bottom:5px}
-.cmd .v{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:19px;font-weight:700;line-height:1.2}
+.cmd .v{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:17px;font-weight:600;line-height:1.2;letter-spacing:-0.2px}
 .cmd .s{font-family:var(--font-mono);font-size:11.5px;margin-left:4px;font-weight:600}
 .cmd.today-pos{background:linear-gradient(180deg,rgba(16,185,129,0.10),transparent)}
-.cmd.today-neg{background:linear-gradient(180deg,rgba(239,68,68,0.10),transparent)}
+.cmd.today-neg{background:linear-gradient(180deg,rgba(240,68,56,0.10),transparent)}
 .cmd .sym{cursor:pointer}
 .cmd .sym:hover{color:var(--blue)}
+/* Hero tier — portfolio value + today's P&L, visually dominant + lifted */
+.cmd-hero{display:flex;gap:1px;flex:2 1 380px;background:var(--border);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden;box-shadow:inset 0 1px 0 var(--raise-hl),var(--shadow-sm)}
+.cmd-hero .cmd{flex:1;background:var(--bg2);display:flex;flex-direction:column;justify-content:center;padding:18px 22px}
+.cmd-hero .cmd .l{font-size:10.5px;margin-bottom:7px}
+.cmd-hero .cmd .v{font-size:24px;font-weight:700;letter-spacing:-0.5px}
+.cmd-hero .cmd:first-child .v{font-size:30px;letter-spacing:-0.7px}  /* the ONE hero number */
+.cmd-hero .cmd .s{font-size:13px}
+/* Secondary tier — grouped performance cluster, medium */
+.cmd-secondary{display:flex;flex-direction:column;flex:1.3 1 300px;background:var(--bg1);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.cmd-sec-title{font-size:9.5px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;padding:8px 14px 0}
+.cmd-sec-cells{display:flex;gap:1px;background:var(--border);flex:1}
+.cmd-secondary .cmd{flex:1;background:var(--bg1);padding:5px 14px 12px}
+.cmd-secondary .cmd .v{font-size:16px}
+/* Tertiary tier — supporting metrics, muted, wraps (never scrolls) */
+.cmd-tertiary{display:flex;flex-wrap:wrap;gap:1px;flex:1 1 100%;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.cmd-tertiary .cmd{flex:1 1 130px;background:var(--bg1);padding:10px 14px}
+.cmd-tertiary .cmd .l{font-size:9.5px}
+.cmd-tertiary .cmd .v{font-size:14px;color:var(--t2)}
 
 /* ── Alerts rail ────────────────────────────────────────────────── */
 .alerts{margin-bottom:12px}
@@ -127,7 +170,7 @@ a{color:inherit}
 .alert-row:last-child{border-bottom:none}
 .alert-row.critical{border-left-color:var(--red);background:rgba(239,68,68,0.05)}
 .alert-row.high{border-left-color:var(--amber);background:rgba(245,158,11,0.04)}
-.alert-row.medium{border-left-color:var(--blue)}
+.alert-row.medium{border-left-color:var(--t3)}
 .alert-row.low{border-left-color:var(--green)}
 .alert-sym{font-family:var(--font-mono);font-weight:700;cursor:pointer;min-width:84px}
 .alert-sym:hover{color:var(--blue);text-decoration:underline}
@@ -136,10 +179,10 @@ a{color:inherit}
 .alert-chip{font-family:var(--font-mono);font-size:10.5px;font-weight:700;border-radius:4px;padding:2px 7px}
 .chip-critical{color:var(--red);background:var(--red-bg)}
 .chip-high{color:var(--amber);background:var(--amber-bg)}
-.chip-medium{color:var(--blue);background:var(--blue-bg)}
+.chip-medium{color:var(--t1);background:rgba(255,255,255,0.07)}
 .chip-low{color:var(--green);background:var(--green-bg)}
 .chip-warning{color:var(--amber);background:var(--amber-bg)}
-.chip-info{color:var(--blue);background:var(--blue-bg)}
+.chip-info{color:var(--t1);background:rgba(255,255,255,0.07)}
 .alerts-more{padding:6px 12px;font-size:11.5px;font-weight:600;color:var(--blue);cursor:pointer}
 .risk-input{width:52px;background:var(--bg0);border:1px solid var(--border)!important;border-radius:4px;color:var(--t0);font-size:11.5px;font-family:var(--font-mono);padding:3px 6px;text-align:right}
 
@@ -164,7 +207,7 @@ table.htable{border-collapse:separate;border-spacing:0;font-size:12.5px;table-la
 .htable th .rz{position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;z-index:5}
 .htable th .rz:hover{background:var(--blue)}
 .htable th .sortmark{font-family:var(--font-mono);font-size:9px;color:var(--blue);font-weight:700}
-.htable td{padding:0 10px;height:34px;border-bottom:1px solid var(--border);color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--bg1)}
+.htable td{padding:0 10px;height:34px;border-bottom:1px solid var(--border);color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--bg1);transition:background-color var(--tr)}
 .htable tr:hover td{background:var(--bg2);cursor:pointer}
 .htable .pin{position:sticky;z-index:15;border-right:1px solid var(--border2)}
 .htable th.pin{z-index:25}
@@ -175,20 +218,22 @@ table.htable{border-collapse:separate;border-spacing:0;font-size:12.5px;table-la
 .status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:1px}
 .dot-ACTIVE{background:var(--green)}.dot-PARTIAL{background:var(--amber)}
 .action-badge{font-weight:700;font-size:10.5px;display:inline-flex;border-radius:4px;padding:2px 7px;white-space:nowrap}
-.action-HOLD{color:var(--blue);background:var(--blue-bg)}
+.action-HOLD{color:var(--t2);background:rgba(255,255,255,0.06)}
 .action-TRIM{color:var(--amber);background:var(--amber-bg)}
 .action-ADD_MORE{color:var(--green);background:var(--green-bg)}
 .action-EXIT_ALL{color:var(--red);background:var(--red-bg)}
 .risk-badge{font-weight:600;font-size:10.5px;display:inline-flex;border-radius:4px;padding:2px 7px;border:1px solid var(--border)}
 .risk-Low{color:var(--green);border-color:rgba(16,185,129,0.3)}
-.risk-Moderate{color:var(--blue);border-color:rgba(59,130,246,0.3)}
+.risk-Moderate{color:var(--t2);border-color:var(--border2)}
 .risk-Elevated{color:var(--amber);border-color:rgba(245,158,11,0.3)}
 .risk-High{color:var(--red);border-color:rgba(239,68,68,0.3)}
 .row-actions{display:flex;gap:8px;justify-content:flex-end}
 .row-actions button{font-size:11px;font-weight:600;color:var(--t3);transition:var(--tr);padding:2px 4px}
 .row-actions button:hover{color:var(--blue)}
 .row-actions button.del:hover{color:var(--red)}
-.empty-row{text-align:center;color:var(--t3);padding:32px!important}
+.empty-row{text-align:center;color:var(--t2);padding:34px 20px!important;font-size:13px;line-height:1.6}
+.empty-action{color:var(--blue);cursor:pointer;font-weight:600}
+.empty-action:hover{text-decoration:underline}
 /* Density modes */
 .htable.dens-compact td{height:26px;font-size:12px}
 .htable.dens-compact th .th-in{padding:6px 8px}
@@ -202,7 +247,7 @@ table.htable{border-collapse:separate;border-spacing:0;font-size:12.5px;table-la
 /* Selection & bulk bar */
 .selcell{width:30px;text-align:center}
 .selcell input{accent-color:var(--blue);cursor:pointer}
-tr.rowsel td{background:rgba(59,130,246,0.08)!important}
+tr.rowsel td{background:rgba(232,168,56,0.10)!important}
 tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
 .bulkbar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--blue-bg);border-bottom:1px solid var(--border);font-size:12px}
 .bulkbar b{font-family:var(--font-mono)}
@@ -210,7 +255,7 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
 .bulkbar button:hover{border-color:var(--blue);color:var(--blue)}
 .bulkbar button.danger:hover{border-color:var(--red);color:var(--red)}
 /* Context menu */
-.ctxmenu{position:fixed;z-index:800;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);box-shadow:var(--shadow-md);min-width:170px;padding:4px 0;font-size:12.5px}
+.ctxmenu{position:fixed;z-index:800;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);box-shadow:inset 0 1px 0 var(--raise-hl),var(--shadow-md);min-width:170px;padding:4px 0;font-size:12.5px}
 .ctxmenu div{padding:7px 14px;color:var(--t1);cursor:pointer}
 .ctxmenu div:hover{background:var(--bg3);color:var(--t0)}
 .ctxmenu div.danger:hover{color:var(--red)}
@@ -307,7 +352,9 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:500;padding:20px;opacity:0;pointer-events:none;transition:var(--tr)}
 .modal-overlay:not(.hidden){opacity:1;pointer-events:auto}
-.modal-card{background:var(--bg1);border:1px solid var(--border);border-radius:10px;width:100%;max-width:520px;box-shadow:var(--shadow-md);display:flex;flex-direction:column;max-height:90vh}
+.modal-overlay .modal-card{transform:scale(0.97) translateY(8px);opacity:0;transition:transform .17s cubic-bezier(0.22,0.61,0.36,1),opacity .17s ease}
+.modal-overlay:not(.hidden) .modal-card{transform:none;opacity:1}
+.modal-card{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;width:100%;max-width:520px;box-shadow:inset 0 1px 0 var(--raise-hl),var(--shadow-md);display:flex;flex-direction:column;max-height:90vh}
 .modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
 .modal-title{font-weight:600;font-size:14px}
 .modal-close{color:var(--t3);font-size:18px;cursor:pointer}
@@ -331,8 +378,8 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
   <a class="back-link" href="./index.html">← Screener</a>
   <div class="topbar-right">
     <span class="gs-wrap hidden" id="gsWrap">
-      <span class="gs-icon">⌕</span>
-      <input class="gs-input" id="gsInput" placeholder="Search everything…  ( / )" autocomplete="off"/>
+      <span class="gs-icon" aria-hidden="true">⌕</span>
+      <input class="gs-input" id="gsInput" placeholder="Search everything…  ( / )" aria-label="Search holdings, transactions, notes, sectors and watchlist" autocomplete="off"/>
       <div class="gs-dd" id="gsDD"></div>
     </span>
     <span id="acctChip" class="text-muted" style="font-size:12px"></span>
@@ -404,6 +451,16 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
     </div>
   </section>
 
+  <!-- Morning brief -->
+  <section class="panel" id="morningBriefPanel">
+    <div class="phead">
+      <span class="ptitle">Morning brief</span>
+      <span class="pnote" style="padding:0" id="morningBriefGreeting"></span>
+      <div class="pactions" id="morningBriefSummary"></div>
+    </div>
+    <div id="morningBriefBody"></div>
+  </section>
+
   <!-- Command bar -->
   <div class="cmdbar" id="cmdBar"></div>
 
@@ -439,7 +496,7 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
     <div class="htoolbar">
       <span class="ptitle">Holdings</span>
       <span class="text-muted mono" id="holdingsCount" style="font-size:11.5px"></span>
-      <span class="hsearch-wrap"><input class="hsearch" id="holdingsSearch" placeholder="Filter symbol or company…" oninput="onHoldingsSearch()"/></span>
+      <span class="hsearch-wrap"><input class="hsearch" id="holdingsSearch" placeholder="Filter symbol or company…" aria-label="Filter holdings by symbol or company" oninput="onHoldingsSearch()"/></span>
       <span id="sectorFilterChip"></span>
       <div class="pactions">
         <div class="tf-tabs" id="sparkTf" title="Trendline timeframe"></div>
@@ -453,9 +510,10 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
           <option value="compact">Compact</option>
           <option value="spacious">Spacious</option>
         </select>
-        <button class="tb-btn" onclick="toggleColMenu(event)">⚙ Columns</button>
-        <button class="tb-btn" onclick="openAddModal()">＋ Add</button>
-        <button class="tb-btn" onclick="loadAll()" title="Refresh all data">↻</button>
+        <button class="tb-btn" onclick="toggleColMenu(event)" aria-label="Choose columns to display">⚙ Columns</button>
+        <button class="tb-btn" onclick="openAddModal()" aria-label="Add holdings">＋ Add</button>
+        <button class="tb-btn" onclick="loadAll()" title="Refresh all data" aria-label="Refresh all data">↻</button>
+        <button class="tb-btn" onclick="showShortcutsHelp()" aria-label="Keyboard shortcuts" title="Keyboard shortcuts — j/k move · Enter open · b buy · s sell · x select · / search · Esc close">?</button>
       </div>
     </div>
     <div id="bulkBar" class="bulkbar hidden"></div>
@@ -539,9 +597,9 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
 <!-- ── Modals ────────────────────────────────────────────────────── -->
 
 <!-- Add / Import -->
-<div class="modal-overlay hidden" id="addModal">
+<div class="modal-overlay hidden" id="addModal" role="dialog" aria-modal="true" aria-labelledby="addModalTitle">
   <div class="modal-card">
-    <div class="modal-head"><span class="modal-title">Add holdings</span><span class="modal-close" onclick="closeAddModal()">✕</span></div>
+    <div class="modal-head"><span class="modal-title" id="addModalTitle">Add holdings</span><span class="modal-close" role="button" aria-label="Close dialog" onclick="closeAddModal()">✕</span></div>
     <div class="modal-body">
       <div class="buy-form">
         <div class="pf-field"><label>Symbol</label><input class="finput" id="holdSymbol" placeholder="e.g. INFY"/></div>
@@ -562,9 +620,9 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
 </div>
 
 <!-- Buy More -->
-<div class="modal-overlay hidden" id="buyModal">
+<div class="modal-overlay hidden" id="buyModal" role="dialog" aria-modal="true" aria-labelledby="buyModalTitle">
   <div class="modal-card">
-    <div class="modal-head"><span class="modal-title" id="buyModalTitle">Buy more</span><span class="modal-close" onclick="closeBuyModal()">✕</span></div>
+    <div class="modal-head"><span class="modal-title" id="buyModalTitle">Buy more</span><span class="modal-close" role="button" aria-label="Close dialog" onclick="closeBuyModal()">✕</span></div>
     <div class="modal-body">
       <div class="holding-ctx" id="buyHoldingCtx"></div>
       <div class="buy-form">
@@ -583,9 +641,9 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
 </div>
 
 <!-- Sell -->
-<div class="modal-overlay hidden" id="sellModal">
+<div class="modal-overlay hidden" id="sellModal" role="dialog" aria-modal="true" aria-labelledby="sellModalTitle">
   <div class="modal-card">
-    <div class="modal-head"><span class="modal-title" id="sellModalTitle">Sell position</span><span class="modal-close" onclick="closeSellModal()">✕</span></div>
+    <div class="modal-head"><span class="modal-title" id="sellModalTitle">Sell position</span><span class="modal-close" role="button" aria-label="Close dialog" onclick="closeSellModal()">✕</span></div>
     <div class="modal-body">
       <div class="holding-ctx" id="sellHoldingCtx"></div>
       <div class="sell-form">
@@ -605,16 +663,16 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
 </div>
 
 <!-- Delete -->
-<div class="modal-overlay hidden" id="deleteModal">
+<div class="modal-overlay hidden" id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
   <div class="modal-card" style="max-width:460px">
-    <div class="modal-head"><span class="modal-title">Delete holding</span><span class="modal-close" onclick="closeDeleteModal()">✕</span></div>
+    <div class="modal-head"><span class="modal-title" id="deleteModalTitle">Delete holding</span><span class="modal-close" role="button" aria-label="Close dialog" onclick="closeDeleteModal()">✕</span></div>
     <div class="modal-body">
       <div class="danger-warning"><span class="dw-icon">⚠</span>
         <div>You're about to remove <b id="deleteHoldingSym" style="font-family:var(--font-mono)"></b> from your dashboard. The transaction ledger is preserved, but treat this as a permanent removal from portfolio metrics.</div>
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
-        <button class="btn btn-danger" onclick="confirmDelete()">Yes, delete this holding</button>
+        <button class="btn btn-danger" id="deleteConfirmBtn" onclick="confirmDelete()">Yes, delete this holding</button>
       </div>
     </div>
   </div>
@@ -633,6 +691,10 @@ let CURRENT_USER = null;
 let HOLDINGS = [];            // all rows from /holdings (open + sold)
 let OPEN = [];                // open (ACTIVE/PARTIAL) rows
 let LAST_SUMMARY = null;
+let PREV_CARDS = null;        // last command-bar values, for tape-flash direction
+let PREV_HOLD = null;         // last per-holding values {id:{field:val}}, for table flash
+let PENDING_FLASH = null;     // {id:{field:dir}} consumed by one render, then cleared
+let ENTERED = false;          // entrance stagger runs once per session
 let SPARKS = {};              // symbol -> [closes]
 let SPARK_TF = localStorage.getItem('tp_spark_tf') || '1M';
 let HISTORY_RANGE = localStorage.getItem('tp_hist_range') || '3M';
@@ -672,6 +734,25 @@ const pCls = v => (v == null || isNaN(v)) ? 'neu' : Number(v) > 0 ? 'pos' : Numb
 const esc  = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const VERDICT_CLASS = {HOLD:'action-HOLD',TRIM:'action-TRIM',ADD_MORE:'action-ADD_MORE',EXIT:'action-EXIT_ALL'};
 const AI_ACTION_CLASS = {'HOLD':'action-HOLD','TRIM':'action-TRIM','ADD MORE':'action-ADD_MORE','EXIT ALL':'action-EXIT_ALL'};
+
+// ── Motion helpers (tape-flash · count-up), all reduced-motion aware ──
+const tpReduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function tpFlash(el, dir) {                       // dir>0 up (green), dir<0 down (red)
+  if (!el || !dir || tpReduced()) return;
+  el.classList.remove('tp-fu', 'tp-fd');
+  void el.offsetWidth;                            // restart the animation if mid-flight
+  el.classList.add(dir > 0 ? 'tp-fu' : 'tp-fd');
+}
+function tpCountUp(el, to, fmt, ms = 650) {       // count 0→to on first paint only
+  if (!el) return;
+  if (tpReduced() || !isFinite(to)) { el.textContent = fmt(to); return; }
+  const t0 = performance.now();
+  (function step(now) {
+    const p = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmt(to * e);
+    if (p < 1) requestAnimationFrame(step);
+  })(t0);
+}
 
 function toast(msg, ms = 3500) {
   const el = document.getElementById('toast');
@@ -767,6 +848,23 @@ async function loadAll() {
     const ranked = [...OPEN].sort((a, b) => (Number(b.position_score) || -1) - (Number(a.position_score) || -1));
     ranked.forEach((h, i) => { h.position_rank = i + 1; h.position_rank_total = ranked.length; });
 
+    // Tape-flash: diff this load's per-holding values against the previous one.
+    // Only set on a genuine data reload — cleared inside renderHoldingsTable so that
+    // sort/filter/group/density re-renders never flash.
+    if (PREV_HOLD) {
+      PENDING_FLASH = {};
+      const F = ['current_price', 'today_change', 'unrealized_pnl', 'gain_pct'];
+      OPEN.forEach(h => {
+        const prev = PREV_HOLD[h.id]; if (!prev) return;
+        const changed = {};
+        F.forEach(k => { const a = Number(prev[k]), b = Number(h[k]); if (!isNaN(a) && !isNaN(b) && a !== b) changed[k] = b - a; });
+        if (Object.keys(changed).length) PENDING_FLASH[h.id] = changed;
+      });
+    }
+    PREV_HOLD = {};
+    OPEN.forEach(h => { PREV_HOLD[h.id] = { current_price: h.current_price, today_change: h.today_change, unrealized_pnl: h.unrealized_pnl, gain_pct: h.gain_pct }; });
+
+    renderMorningBrief(summary);
     renderCommandBar(summary);
     renderHoldingsTable();
     renderAllocation();
@@ -775,6 +873,14 @@ async function loadAll() {
     renderDecision();
     renderHistoryTable(HOLDINGS.filter(h => h.status === 'SOLD'));
     renderMissingDates(HOLDINGS.filter(h => h.requires_confirmation && (h.status === 'ACTIVE' || h.status === 'PARTIAL')));
+
+    // One orchestrated settle on the first load with data present — panels rise in reading order.
+    if (!ENTERED) {
+      ENTERED = true;
+      const ds = document.getElementById('dashboardScreen');
+      ds.classList.add('tp-stagger');
+      setTimeout(() => ds.classList.remove('tp-stagger'), 1200);
+    }
 
     // Non-blocking secondary loads
     ALL_HISTORY = []; BENCH = null;   // recompute analytics after any trade
@@ -791,6 +897,30 @@ async function loadAll() {
   }
 }
 
+// ── Morning brief ─────────────────────────────────────────────────
+function renderMorningBrief(summary) {
+  const mb = summary.morning_brief;
+  const greetEl = document.getElementById('morningBriefGreeting');
+  const sumEl = document.getElementById('morningBriefSummary');
+  const body = document.getElementById('morningBriefBody');
+  if (!mb) {
+    greetEl.textContent = '';
+    sumEl.innerHTML = '';
+    body.innerHTML = '<div class="pnote">No brief yet — add holdings and check back after the next completed market session.</div>';
+    return;
+  }
+  greetEl.textContent = mb.greeting || '';
+  const s = mb.summary || {};
+  sumEl.innerHTML = `
+    <span class="alert-chip chip-low" title="Elite / Strong / Healthy positions">${s.strong_positions ?? 0} strong</span>
+    <span class="alert-chip chip-warning" title="Watch-closely positions">${s.watch_closely ?? 0} watch</span>
+    <span class="alert-chip chip-critical" title="Weak / High-risk positions">${s.high_risk ?? 0} at risk</span>`;
+  const highlights = mb.highlights || [];
+  body.innerHTML = highlights.length
+    ? `<ul style="margin:0;padding:10px 12px 12px 30px;font-size:12.5px;color:var(--t2);line-height:1.7">${highlights.map(h => `<li>${esc(h)}</li>`).join('')}</ul>`
+    : '<div class="pnote">No notable observations on your holdings this session.</div>';
+}
+
 // ── Command bar ───────────────────────────────────────────────────
 function renderCommandBar(summary) {
   const c = summary.cards || {};
@@ -799,23 +929,60 @@ function renderCommandBar(summary) {
   const overall = (c.unrealized_pnl || 0) + (c.realized_pnl || 0);
   const winRate = OPEN.length ? (c.winning_holdings / OPEN.length * 100) : null;
   const todayCls = (c.today_pnl || 0) >= 0 ? 'today-pos' : 'today-neg';
-  const cells = [
-    ['Portfolio value', `<span>${inr0(c.current_value)}</span>`, ''],
-    ["Today's P&L", `<span class="${pCls(c.today_pnl)}">${inr0(c.today_pnl)}</span><span class="s ${pCls(c.today_return_pct)}">${fPct(c.today_return_pct)}</span>`, todayCls],
-    ['Overall P&L', `<span class="${pCls(overall)}">${inr0(overall)}</span>`, ''],
-    ['Unrealized', `<span class="${pCls(c.unrealized_pnl)}">${inr0(c.unrealized_pnl)}</span>`, ''],
-    ['Realized', `<span class="${pCls(c.realized_pnl)}">${inr0(c.realized_pnl)}</span>`, ''],
-    ['Return', `<span class="${pCls(c.return_pct)}">${fPct(c.return_pct)}</span>`, ''],
-    ['XIRR', `<span class="${pCls(c.xirr_pct)}">${c.xirr_pct != null ? fPct(c.xirr_pct) : '—'}</span>`, ''],
-    ['Invested', `<span>${inr0(c.total_investment)}</span>`, ''],
-    ['Positions', `<span>${c.number_of_holdings ?? 0}</span>`, ''],
+  // fk = flash key: stamps the value node so a data reload can wash it green/red by direction
+  const cell = (l, v, cls = '', fk = '') => `<div class="cmd ${cls}"><div class="l">${l}</div><div class="v"${fk ? ` data-fk="${fk}"` : ''}>${v}</div></div>`;
+
+  // Hero tier — dominant: portfolio value + today's P&L
+  const hero = `<div class="cmd-hero">
+    ${cell('Portfolio value', `<span>${inr0(c.current_value)}</span>`, '', 'current_value')}
+    ${cell("Today's P&L", `<span class="${pCls(c.today_pnl)}">${inr0(c.today_pnl)}</span><span class="s ${pCls(c.today_return_pct)}">${fPct(c.today_return_pct)}</span>`, todayCls, 'today_pnl')}
+  </div>`;
+
+  // Secondary tier — performance cluster
+  const secondary = `<div class="cmd-secondary">
+    <div class="cmd-sec-title">Performance</div>
+    <div class="cmd-sec-cells">
+      ${cell('Overall P&L', `<span class="${pCls(overall)}">${inr0(overall)}</span>`, '', 'overall')}
+      ${cell('Return', `<span class="${pCls(c.return_pct)}">${fPct(c.return_pct)}</span>`, '', 'return_pct')}
+      ${cell('XIRR', `<span class="${pCls(c.xirr_pct)}">${c.xirr_pct != null ? fPct(c.xirr_pct) : '—'}</span>`, '', 'xirr_pct')}
+    </div>
+  </div>`;
+
+  // Tertiary tier — supporting metrics, muted, wraps
+  const tert = [
+    ['Unrealized', `<span class="${pCls(c.unrealized_pnl)}">${inr0(c.unrealized_pnl)}</span>`, 'unrealized_pnl'],
+    ['Realized', `<span class="${pCls(c.realized_pnl)}">${inr0(c.realized_pnl)}</span>`, 'realized_pnl'],
+    ['Invested', `<span>${inr0(c.total_investment)}</span>`, 'total_investment'],
+    ['Positions', `<span>${c.number_of_holdings ?? 0}</span>`, 'number_of_holdings'],
     ['Won / Lost', `<span class="pos">${c.winning_holdings ?? 0}</span><span style="color:var(--t3)"> / </span><span class="neg">${c.losing_holdings ?? 0}</span>`, ''],
-    ['Win rate', `<span>${winRate != null ? f1(winRate) + '%' : '—'}</span>`, ''],
+    ['Win rate', `<span>${winRate != null ? f1(winRate) + '%' : '—'}</span>`, 'winRate'],
   ];
-  if (best) cells.push(['Best', `<span class="sym pos" onclick="TPDP.open('${best.symbol}')">${best.symbol}</span><span class="s pos">${fPct(best.gain_pct)}</span>`, '']);
-  if (worst && worst !== best) cells.push(['Worst', `<span class="sym neg" onclick="TPDP.open('${worst.symbol}')">${worst.symbol}</span><span class="s neg">${fPct(worst.gain_pct)}</span>`, '']);
-  document.getElementById('cmdBar').innerHTML =
-    cells.map(([l, v, cls]) => `<div class="cmd ${cls}"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
+  if (best) tert.push(['Best', `<span class="sym pos" onclick="TPDP.open('${best.symbol}')">${best.symbol}</span><span class="s pos">${fPct(best.gain_pct)}</span>`, '']);
+  if (worst && worst !== best) tert.push(['Worst', `<span class="sym neg" onclick="TPDP.open('${worst.symbol}')">${worst.symbol}</span><span class="s neg">${fPct(worst.gain_pct)}</span>`, '']);
+  const tertiary = `<div class="cmd-tertiary">${tert.map(([l, v, fk]) => cell(l, v, '', fk)).join('')}</div>`;
+
+  document.getElementById('cmdBar').innerHTML = hero + secondary + tertiary;
+
+  // Tape-flash + first-load count-up. The value snapshot drives both.
+  const vals = {
+    current_value: c.current_value, today_pnl: c.today_pnl, overall,
+    return_pct: c.return_pct, xirr_pct: c.xirr_pct, unrealized_pnl: c.unrealized_pnl,
+    realized_pnl: c.realized_pnl, total_investment: c.total_investment,
+    number_of_holdings: c.number_of_holdings, winRate,
+  };
+  const firstRender = !PREV_CARDS;
+  const bar = document.getElementById('cmdBar');
+  if (firstRender) {
+    // one settle-in count-up on the single hero number, nothing else
+    tpCountUp(bar.querySelector('[data-fk="current_value"] span'), Number(c.current_value) || 0, inr0);
+  } else {
+    for (const k in vals) {
+      const prev = PREV_CARDS[k], now = vals[k];
+      if (prev == null || now == null || isNaN(prev) || isNaN(now)) continue;
+      if (Number(now) !== Number(prev)) tpFlash(bar.querySelector(`[data-fk="${k}"]`), Number(now) - Number(prev));
+    }
+  }
+  PREV_CARDS = vals;
 }
 
 // ── Alerts ────────────────────────────────────────────────────────
@@ -834,7 +1001,7 @@ async function loadAlerts() {
     ALERTS_DATA = d.data || [];
     renderAlerts(d.counts || {});
   } catch (e) {
-    document.getElementById('alertsRail').innerHTML = `<div class="pnote">Alerts unavailable: ${esc(cleanErr(e.message))}</div>`;
+    document.getElementById('alertsRail').innerHTML = `<div class="pnote">Couldn't load alerts. Check that the data service is running, then hit ↻ to retry.<br><span style="color:var(--t3);font-size:11px">${esc(cleanErr(e.message))}</span></div>`;
   }
 }
 function toggleAlertFilter(sev) {
@@ -875,7 +1042,7 @@ function renderAlerts(counts) {
 // ── Holdings table: column model ──────────────────────────────────
 const COLS = [
   { key:'_sel', label:'', w:30, sortable:false, always:true, pin:true,
-    render: h => `<input type="checkbox" data-selid="${h.id}" ${SELECTED.has(h.id) ? 'checked' : ''} onclick="event.stopPropagation()">` },
+    render: h => `<input type="checkbox" data-selid="${h.id}" aria-label="Select ${esc(h.symbol)}" ${SELECTED.has(h.id) ? 'checked' : ''} onclick="event.stopPropagation()">` },
   { key:'symbol', label:'Symbol', w:120, pin:true,
     render: h => `<span class="status-dot dot-${h.status}"></span><span class="hsym">${h.symbol}</span>`,
     sv: h => h.symbol },
@@ -921,9 +1088,9 @@ const COLS = [
     sv: h => ({EXIT:0,TRIM:1,ADD_MORE:2,HOLD:3}[h.verdict] ?? 4) },
   { key:'_actions', label:'', w:118, sortable:false, always:true,
     render: h => `<span class="row-actions">
-      <button onclick="event.stopPropagation();openBuyModal(${h.id})">Buy</button>
-      <button onclick="event.stopPropagation();openSellModal(${h.id})">Sell</button>
-      <button class="del" onclick="event.stopPropagation();openDeleteModal(${h.id})">Del</button></span>` },
+      <button aria-label="Buy more ${esc(h.symbol)}" onclick="event.stopPropagation();openBuyModal(${h.id})">Buy</button>
+      <button aria-label="Sell ${esc(h.symbol)}" onclick="event.stopPropagation();openSellModal(${h.id})">Sell</button>
+      <button class="del" aria-label="Delete ${esc(h.symbol)}" onclick="event.stopPropagation();openDeleteModal(${h.id})">Del</button></span>` },
 ];
 const COLS_BY_KEY = Object.fromEntries(COLS.map(c => [c.key, c]));
 const COL_STORE_KEY = 'tp_pf_cols_v3'; // v3: buy_date column added mid-model (saved v2 orders would misplace it)
@@ -1022,7 +1189,7 @@ function renderHoldingsTable() {
   document.getElementById('hThead').innerHTML = cols.map(c => {
     if (c.key === '_sel') {
       return `<th data-key="_sel" ${pinAttr('_sel')} class="pin selcell" style="left:${leftOf['_sel']}px">
-        <input type="checkbox" id="selAll" ${allSelected ? 'checked' : ''} title="Select all visible"></th>`;
+        <input type="checkbox" id="selAll" ${allSelected ? 'checked' : ''} title="Select all visible" aria-label="Select all visible holdings"></th>`;
     }
     const si = SORT_STACK.findIndex(s => s.key === c.key);
     const mark = si >= 0 ? `<span class="sortmark">${SORT_STACK[si].dir === 'asc' ? '▲' : '▼'}${SORT_STACK.length > 1 ? si + 1 : ''}</span>` : '';
@@ -1034,15 +1201,30 @@ function renderHoldingsTable() {
   const rowHtml = h => {
     const idx = VISIBLE_ROWS.length;
     VISIBLE_ROWS.push(h);
+    const fmap = PENDING_FLASH && PENDING_FLASH[h.id];
+    const td = c => {
+      const isSel = c.key === '_sel', pinned = pinnedKeys.includes(c.key);
+      const cls = [];
+      if (isSel) cls.push('pin', 'selcell'); else if (pinned) cls.push('pin');
+      const dir = fmap && fmap[c.key];            // tape-flash: only on a real data reload
+      if (dir) cls.push(dir > 0 ? 'tp-fu' : 'tp-fd');
+      const clsAttr = cls.length ? ` class="${cls.join(' ')}"` : '';
+      const style = (isSel || pinned) ? ` style="left:${leftOf[c.key]}px"` : '';
+      return `<td${clsAttr}${style}${c.align === 'r' ? ' align="right"' : ''}>${c.render(h)}</td>`;
+    };
     return `
-    <tr data-id="${h.id}" data-sym="${h.symbol}" data-idx="${idx}" class="${SELECTED.has(h.id) ? 'rowsel' : ''}${idx === ROW_FOCUS ? ' rowfocus' : ''}">
-      ${cols.map(c => `<td ${c.key === '_sel' ? `class="pin selcell" style="left:${leftOf['_sel']}px"` : pinAttr(c.key)} ${c.align === 'r' ? 'align="right"' : ''}>${c.render(h)}</td>`).join('')}
+    <tr data-id="${h.id}" data-sym="${h.symbol}" data-idx="${idx}" aria-selected="${SELECTED.has(h.id)}" class="${SELECTED.has(h.id) ? 'rowsel' : ''}${idx === ROW_FOCUS ? ' rowfocus' : ''}">
+      ${cols.map(td).join('')}
     </tr>`;
   };
 
   let body = '';
   if (!rows.length) {
-    body = `<tr><td class="empty-row" colspan="${cols.length}">No open holdings${SEARCH || SECTOR_FILTER ? ' match this filter' : ' yet — use ＋ Add to create or import'}.</td></tr>`;
+    body = `<tr><td class="empty-row" colspan="${cols.length}">${
+      (SEARCH || SECTOR_FILTER)
+        ? `No positions match this filter. <span class="empty-action" onclick="clearHoldingsFilter()">Clear filter</span>`
+        : `No open positions yet. <span class="empty-action" onclick="openAddModal()">Add a holding</span> or import a broker file to start tracking.`
+    }</td></tr>`;
   } else if (GROUPING) {
     const groups = new Map();
     rows.forEach(h => {
@@ -1056,8 +1238,8 @@ function renderHoldingsTable() {
       const pnl = ghs.reduce((s, h) => s + (+h.unrealized_pnl || 0), 0);
       const today = ghs.reduce((s, h) => s + (+h.today_change || 0), 0);
       const collapsed = GRP_COLLAPSED.has(name);
-      body += `<tr class="grp-row" data-grp="${esc(name)}"><td colspan="${cols.length}">
-        <span class="grp-caret">${collapsed ? '▸' : '▾'}</span>${esc(name)}
+      body += `<tr class="grp-row" data-grp="${esc(name)}" role="button" aria-expanded="${!collapsed}" aria-label="Toggle ${esc(name)} group"><td colspan="${cols.length}">
+        <span class="grp-caret" aria-hidden="true">${collapsed ? '▸' : '▾'}</span>${esc(name)}
         <span class="grp-stats">${ghs.length} · ${inr0(val)} · today <span class="${pCls(today)}">${inr0(today)}</span> · P&L <span class="${pCls(pnl)}">${inr0(pnl)}</span></span>
       </td></tr>`;
       if (!collapsed) ghs.forEach(h => { body += rowHtml(h); });
@@ -1066,6 +1248,7 @@ function renderHoldingsTable() {
     body = rows.map(h => rowHtml(h)).join('');
   }
   document.getElementById('hTbody').innerHTML = body;
+  PENDING_FLASH = null;   // consumed — sort/filter/group re-renders must not flash
 
   // Summary row across the *visible* rows — always in sight (sticky bottom)
   if (rows.length) {
@@ -1286,6 +1469,10 @@ function onHoldingsSearch() {
   SEARCH = document.getElementById('holdingsSearch').value.trim();
   renderHoldingsTable();
 }
+function clearHoldingsFilter() {
+  SEARCH = ''; document.getElementById('holdingsSearch').value = '';
+  setSectorFilter(null, null);   // clears sector chip and re-renders
+}
 function setSectorFilter(mode, value) {
   SECTOR_FILTER = value ? { mode, value } : null;
   document.getElementById('sectorFilterChip').innerHTML = SECTOR_FILTER
@@ -1480,7 +1667,7 @@ function drawHistoryChart() {
   const invested = HISTORY_SERIES.map(p => Number(p.invested));
   TPCharts.lines(document.getElementById('historyCanvas'), [
     { values: invested, color: '#71717a', dash: [5, 4], width: 1.2 },
-    { values, color: '#3b82f6', fill: true, width: 1.8 },
+    { values, color: '#e8a838', fill: true, width: 1.8 },
   ]);
   const first = values[0], last = values[values.length - 1];
   const chg = first ? (last - first) / first * 100 : 0;
@@ -1693,7 +1880,7 @@ function drawAnBenchmark() {
   const cv = document.getElementById('anBenchCanvas');
   if (cv) TPCharts.lines(cv, [
     { values: mCum, color: '#71717a', dash: [5, 4], width: 1.2 },
-    { values: pCum, color: '#3b82f6', fill: true, width: 1.8 },
+    { values: pCum, color: '#e8a838', fill: true, width: 1.8 },
   ]);
   const alpha = pCum[pCum.length - 1] - mCum[mCum.length - 1];
   const note = document.getElementById('anBenchNote');
@@ -1950,9 +2137,43 @@ function renderHistoryTable(rows) {
     </tr>`).join('') : '<tr><td colspan="8" class="empty-row">No exited positions.</td></tr>';
 }
 
+// ── Modal focus management (Escape · focus trap · focus return) ───
+// Shared by all four .modal-overlay dialogs (add/buy/sell/delete).
+let MODAL_STACK = [];        // ids of currently-open modals (last = topmost)
+let MODAL_TRIGGER = null;    // element to restore focus to on close
+const MODAL_CLOSERS = {};    // id → close function (filled after they're defined)
+function topModal() { return MODAL_STACK[MODAL_STACK.length - 1] || null; }
+function onModalOpen(id, focusSelector) {
+  MODAL_TRIGGER = document.activeElement;
+  MODAL_STACK = MODAL_STACK.filter(x => x !== id);
+  MODAL_STACK.push(id);
+  requestAnimationFrame(() => {
+    const el = focusSelector ? document.querySelector(focusSelector) : null;
+    if (el) el.focus();
+  });
+}
+function onModalClose(id) {
+  MODAL_STACK = MODAL_STACK.filter(x => x !== id);
+  if (MODAL_TRIGGER && typeof MODAL_TRIGGER.focus === 'function') MODAL_TRIGGER.focus();
+  MODAL_TRIGGER = null;
+}
+function trapModalFocus(e) {
+  const id = topModal();
+  if (!id) return;
+  const card = document.querySelector('#' + id + ' .modal-card');
+  if (!card) return;
+  const focusable = [...card.querySelectorAll(
+    'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+    .filter(el => el.offsetParent !== null);
+  if (!focusable.length) return;
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+
 // ── Add / import ──────────────────────────────────────────────────
-function openAddModal() { document.getElementById('addModal').classList.remove('hidden'); }
-function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); }
+function openAddModal() { document.getElementById('addModal').classList.remove('hidden'); onModalOpen('addModal', '#holdSymbol'); }
+function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); onModalClose('addModal'); }
 async function saveHolding() {
   try {
     const payload = {
@@ -2023,9 +2244,11 @@ function openSellModal(id) {
   document.getElementById('sellNotes').value = '';
   updateSellPreview();
   document.getElementById('sellModal').classList.remove('hidden');
+  onModalOpen('sellModal', '#sellQty');
 }
 function closeSellModal() {
   document.getElementById('sellModal').classList.add('hidden'); SELL_TARGET_ID = null;
+  onModalClose('sellModal');
   if (BULK_MODE) setTimeout(advanceBulkQueue, 150);
 }
 function updateSellPreview() {
@@ -2071,9 +2294,11 @@ function openBuyModal(id) {
   document.getElementById('buyCharges').value = 0;
   updateBuyPreview();
   document.getElementById('buyModal').classList.remove('hidden');
+  onModalOpen('buyModal', '#buyQty');
 }
 function closeBuyModal() {
   document.getElementById('buyModal').classList.add('hidden'); BUY_TARGET_ID = null;
+  onModalClose('buyModal');
   if (BULK_MODE) setTimeout(advanceBulkQueue, 150);
 }
 function updateBuyPreview() {
@@ -2105,8 +2330,12 @@ function openDeleteModal(id) {
   DELETE_TARGET_ID = id;
   document.getElementById('deleteHoldingSym').textContent = h.symbol;
   document.getElementById('deleteModal').classList.remove('hidden');
+  onModalOpen('deleteModal', '#deleteConfirmBtn');
 }
-function closeDeleteModal() { document.getElementById('deleteModal').classList.add('hidden'); DELETE_TARGET_ID = null; }
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.add('hidden'); DELETE_TARGET_ID = null;
+  onModalClose('deleteModal');
+}
 async function confirmDelete() {
   if (!DELETE_TARGET_ID) return;
   try {
@@ -2114,18 +2343,24 @@ async function confirmDelete() {
     toast('Holding deleted'); closeDeleteModal(); loadAll();
   } catch (e) { toast(cleanErr(e.message)); }
 }
+// Map each modal id to its close function (used by Escape + backdrop click)
+Object.assign(MODAL_CLOSERS, {
+  addModal: closeAddModal, buyModal: closeBuyModal,
+  sellModal: closeSellModal, deleteModal: closeDeleteModal,
+});
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', e => {
     if (e.target.classList.contains('modal-overlay')) {
-      e.target.classList.add('hidden');
-      if (e.target.id === 'sellModal') SELL_TARGET_ID = null;
-      if (e.target.id === 'buyModal') BUY_TARGET_ID = null;
-      if (e.target.id === 'deleteModal') DELETE_TARGET_ID = null;
+      const close = MODAL_CLOSERS[e.target.id];
+      if (close) close();
     }
   });
 });
 // ── Keyboard shortcuts ────────────────────────────────────────────
 // j/k move · Enter open · b buy · s sell · x select · Esc close/clear · / global search
+function showShortcutsHelp() {
+  toast('Shortcuts — j / k: move rows · Enter: open · b: buy · s: sell · x: select · /: search · Esc: close', 7000);
+}
 function focusedHolding() {
   return ROW_FOCUS >= 0 && ROW_FOCUS < VISIBLE_ROWS.length ? VISIBLE_ROWS[ROW_FOCUS] : null;
 }
@@ -2141,10 +2376,14 @@ document.addEventListener('keydown', e => {
   const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (e.key === 'Escape') {
     closeCtxMenu();
+    const top = topModal();
+    if (top) { const close = MODAL_CLOSERS[top]; if (close) close(); return; }
     if (TPDP.isOpen()) { TPDP.close(); return; }
     if (SELECTED.size) { clearSelection(); return; }
     return;
   }
+  // While a modal is open, trap Tab within it and swallow row shortcuts.
+  if (topModal()) { if (e.key === 'Tab') trapModalFocus(e); return; }
   if (typing) return;
   if (e.key === '/') { e.preventDefault(); const gs = document.getElementById('gsInput'); if (gs) { gs.focus(); gs.select(); } return; }
   if (e.key === 'j' || e.key === 'ArrowDown') { e.preventDefault(); moveFocus(1); return; }

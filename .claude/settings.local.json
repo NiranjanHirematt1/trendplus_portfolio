@@ -23,7 +23,26 @@
       "Bash(netstat -ano)",
       "Bash(taskkill //F //PID 23196)",
       "Bash(node --check frontend/shared.js)",
-      "Bash(../.venv/Scripts/python.exe -c \"from app.api import portfolio; from app.services import portfolio_intelligence as pi; print\\('import OK'\\); print\\(pi.estimate_taxes\\([{'unrealized_pnl': 300000, 'days_held': 400}, {'unrealized_pnl': 20000, 'days_held': 30}]\\)\\)\")"
+      "Bash(../.venv/Scripts/python.exe -c \"from app.api import portfolio; from app.services import portfolio_intelligence as pi; print\\('import OK'\\); print\\(pi.estimate_taxes\\([{'unrealized_pnl': 300000, 'days_held': 400}, {'unrealized_pnl': 20000, 'days_held': 30}]\\)\\)\")",
+      "Bash(node --check shared.js)",
+      "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 --window-size=1400,900 --screenshot=C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/auth.png file:///C:/Users/user-pc/Downloads/trendplus-admin-approval-auth/frontend/portfolio.html)",
+      "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 --window-size=1500,1250 --virtual-time-budget=2500 --screenshot=C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/dash.png file:///C:/Users/user-pc/Downloads/trendplus-admin-approval-auth/frontend/_preview_mock.html)",
+      "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=2 --window-size=1500,760 --virtual-time-budget=2500 --screenshot=C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/dash2.png file:///C:/Users/user-pc/Downloads/trendplus-admin-approval-auth/frontend/_preview_mock.html)",
+      "Bash(grep -rniE \"nifty ?500|nifty500|top ?[0-9]{3,4}|universe|LIMIT [0-9]{3}|nse_master|\\\\\\\\b1[0-9]{3}\\\\\\\\b stocks\" backend/app analytics_engine.py)",
+      "Bash(npm --version)",
+      "Read(//c/Users/user-pc/Downloads/**)",
+      "Bash(npm ping *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(break)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:3200/)",
+      "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1.5 --window-size=1440,2650 --virtual-time-budget=4500 --screenshot=C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/lp_full.png http://localhost:3200/)",
+      "Bash(curl -s -o /dev/null -w \"recompile HTTP %{http_code}\\\\n\" http://localhost:3200/)",
+      "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1.5 --window-size=1440,2650 --virtual-time-budget=9000 --screenshot=C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/lp_full2.png http://localhost:3200/)",
+      "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --hide-scrollbars --force-prefers-reduced-motion --force-device-scale-factor=1.5 --window-size=1440,2650 --virtual-time-budget=3000 --screenshot=C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/lp_reduced.png http://localhost:3200/)",
+      "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --enable-logging=stderr --v=0 --virtual-time-budget=4000 --screenshot=C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/x.png http://localhost:3200/)",
+      "Bash(echo \"=== console errors/warnings ===\")",
+      "Bash(grep -iE 'error|warning|hydrat|Warning:' C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/console.log)"
     ]
   }
 }

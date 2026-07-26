@@ -191,7 +191,7 @@ window.TPCharts = (function () {
       TPCharts.line(canvas, vals, Object.assign({}, opts, { pad }));
       const g = geometry();
       const ctx = canvas.getContext('2d');
-      const MK = { buy: '#3b82f6', sell: '#f59e0b', start: '#a1a1aa' };
+      const MK = { buy: '#10b981', sell: '#f0a92e', start: '#a8a196' };
       (opts.markers || []).forEach(m => {
         if (m.i == null || m.i < 0 || m.i >= vals.length) return;
         ctx.beginPath();
@@ -354,12 +354,12 @@ window.TPDP = (function () {
 .dp .mbar-fg{height:100%;border-radius:99px}
 .dp .ema{font-size:10.5px;font-weight:700;border-radius:4px;padding:3px 7px;white-space:nowrap}
 .dp .ema-gc{color:#10b981;background:rgba(16,185,129,0.15)}
-.dp .ema-a2{color:#3b82f6;background:rgba(59,130,246,0.15)}
+.dp .ema-a2{color:var(--t1);background:rgba(255,255,255,0.07)}
 .dp .ema-ap{color:#f59e0b;background:rgba(245,158,11,0.15)}
 .dp .macd-bull{color:#10b981;font-family:var(--font-mono);font-weight:700;font-size:12px}
 .dp .macd-bear{color:#ef4444;font-family:var(--font-mono);font-weight:700;font-size:12px}
 .dp .cap{font-size:10px;font-weight:700;border-radius:4px;padding:2px 6px;margin-left:6px}
-.dp .cap-L{color:#3b82f6;background:rgba(59,130,246,0.15)}
+.dp .cap-L{color:var(--t1);background:rgba(255,255,255,0.07)}
 .dp .cap-M{color:#a855f7;background:rgba(168,85,247,0.15)}
 .dp .cap-S{color:#f59e0b;background:rgba(245,158,11,0.15)}
 .dp .ld{display:flex;align-items:center;gap:10px;color:var(--t2);font-size:13px;padding:12px 0}
@@ -369,15 +369,15 @@ window.TPDP = (function () {
 .dp .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
 .dp-tf{display:flex;gap:4px}
 .dp-tf button{font-size:10.5px;font-weight:700;font-family:var(--font-mono);color:var(--t2);border:1px solid var(--border);border-radius:5px;padding:3px 8px;cursor:pointer;background:transparent;letter-spacing:0;text-transform:none}
-.dp-tf button.active{color:#fff;background:var(--blue-d,#2563eb);border-color:var(--blue-d,#2563eb)}
+.dp-tf button.active{color:#0c0b0a;background:var(--blue-d,#b7841f);border-color:var(--blue-d,#b7841f)}
 .dp .action-badge{font-weight:700;font-size:11px;display:inline-flex;border-radius:4px;padding:3px 8px;white-space:nowrap}
-.dp .action-HOLD{color:#3b82f6;background:rgba(59,130,246,0.15)}
+.dp .action-HOLD{color:var(--t2);background:rgba(255,255,255,0.06)}
 .dp .action-TRIM{color:#f59e0b;background:rgba(245,158,11,0.15)}
 .dp .action-ADD_MORE{color:#10b981;background:rgba(16,185,129,0.15)}
 .dp .action-EXIT_ALL{color:#ef4444;background:rgba(239,68,68,0.15)}
 .dp .risk-badge{font-weight:600;font-size:10.5px;display:inline-flex;border-radius:4px;padding:2px 7px;border:1px solid var(--border)}
 .dp .risk-Low{color:#10b981;border-color:rgba(16,185,129,0.3)}
-.dp .risk-Moderate{color:#3b82f6;border-color:rgba(59,130,246,0.3)}
+.dp .risk-Moderate{color:var(--t2);border-color:var(--border2)}
 .dp .risk-Elevated{color:#f59e0b;border-color:rgba(245,158,11,0.3)}
 .dp .risk-High{color:#ef4444;border-color:rgba(239,68,68,0.3)}
 .dp .vreasons{margin:8px 0 0;padding-left:16px;font-size:12px;color:var(--t2);line-height:1.55}
@@ -397,6 +397,11 @@ window.TPDP = (function () {
 .dp-note{font-size:12px;color:var(--t3);line-height:1.6}
 .dp-mkr{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--t3);margin-right:10px}
 .dp-mkr i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.dp-scrim{position:fixed;inset:0;background:rgba(0,0,0,0.32);opacity:0;pointer-events:none;transition:opacity .24s ease;z-index:590}
+.dp-scrim.open{opacity:1;pointer-events:auto}
+@keyframes tpdp-reveal{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.dp.open .dp-body{animation:tpdp-reveal .28s ease-out both}
+@media (prefers-reduced-motion:reduce){.dp-scrim{transition:none}.dp.open .dp-body{animation:none}}
 `;
 
   const MARKUP = `
@@ -421,6 +426,10 @@ window.TPDP = (function () {
     style.id = 'tpdp-styles';
     style.textContent = CSS;
     document.head.appendChild(style);
+    const scrim = document.createElement('div');
+    scrim.className = 'dp-scrim'; scrim.id = 'dpScrim';
+    scrim.addEventListener('click', close);
+    document.body.appendChild(scrim);
     const el = document.createElement('div');
     el.className = 'dp'; el.id = 'dp';
     el.innerHTML = MARKUP;
@@ -502,7 +511,7 @@ window.TPDP = (function () {
     const chg = (closes[closes.length - 1] - closes[0]) / closes[0] * 100;
     if (note) note.innerHTML =
       `${dates[0]} → ${dates[dates.length - 1]} · <span class="${pCls(chg)} mono">${fPct(chg)}</span>` +
-      (h ? ` <span class="dp-mkr" style="margin-left:10px"><i style="background:#3b82f6"></i>buy</span><span class="dp-mkr"><i style="background:#f59e0b"></i>sell</span><span class="dp-mkr"><i style="background:#a1a1aa;border:1px solid #fff"></i>first buy</span><span class="dp-mkr">┄ avg cost</span>` : '');
+      (h ? ` <span class="dp-mkr" style="margin-left:10px"><i style="background:#10b981"></i>buy</span><span class="dp-mkr"><i style="background:#f0a92e"></i>sell</span><span class="dp-mkr"><i style="background:#a8a196;border:1px solid #fff"></i>first buy</span><span class="dp-mkr">┄ avg cost</span>` : '');
   }
 
   function tabOverview() {
@@ -727,6 +736,7 @@ window.TPDP = (function () {
   function open(sym) {
     ensureDom();
     currentSym = sym;
+    document.getElementById('dpScrim').classList.add('open');
     document.getElementById('dp').classList.add('open');
     document.getElementById('dpSym').textContent = sym;
     document.getElementById('dpName').textContent = '';
@@ -741,6 +751,8 @@ window.TPDP = (function () {
   function close() {
     const dp = document.getElementById('dp');
     if (dp) dp.classList.remove('open');
+    const scrim = document.getElementById('dpScrim');
+    if (scrim) scrim.classList.remove('open');
     currentSym = null;
   }
 
