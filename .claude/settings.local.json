@@ -42,7 +42,8 @@
       "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --hide-scrollbars --force-prefers-reduced-motion --force-device-scale-factor=1.5 --window-size=1440,2650 --virtual-time-budget=3000 --screenshot=C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/lp_reduced.png http://localhost:3200/)",
       "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --enable-logging=stderr --v=0 --virtual-time-budget=4000 --screenshot=C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/x.png http://localhost:3200/)",
       "Bash(echo \"=== console errors/warnings ===\")",
-      "Bash(grep -iE 'error|warning|hydrat|Warning:' C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/console.log)"
+      "Bash(grep -iE 'error|warning|hydrat|Warning:' C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/console.log)",
+      "Bash('/c/Program Files/Google/Chrome/Application/chrome.exe' --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1.5 --window-size=1500,900 --virtual-time-budget=3500 --screenshot=C:/Users/user-pc/AppData/Local/Temp/claude/C--Users-user-pc-Downloads-trendplus-admin-approval-auth/59aee138-4a14-4edc-8802-a5956a2cfbc0/scratchpad/screener.png file:///C:/Users/user-pc/Downloads/trendplus-admin-approval-auth/frontend/_preview_screener.html)"
     ]
   }
 }

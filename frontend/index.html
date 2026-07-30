@@ -5,49 +5,56 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>TrendPlus — NSE Momentum Screener</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 /* ── PREMIUM UI/UX DESIGN SYSTEM ─────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  /* Institutional Dark Theme Palette */
-  --bg0: #0a0e17; /* Deepest canvas */
-  --bg1: #11151c; /* Main panels & sidebar */
-  --bg2: #1c2331; /* Elevated cards & table headers */
-  --bg3: #273041; /* Hover states & subtle accents */
-  --bg4: #333d52; /* Active states */
-  
-  --border: #1e2634;  /* Soft dividers */
-  --border2: #2a3548; /* Prominent dividers */
-  
-  --t0: #f8fafc; /* Primary headings & tickers */
-  --t1: #cbd5e1; /* Secondary text */
-  --t2: #94a3b8; /* Labels & muted text */
-  --t3: #64748b; /* Disabled / very muted */
-  
+  /* Warm-charcoal terminal palette — LOCKED, shared with portfolio.html + landing page.
+     Environment recedes; amber is the single "pay attention" brand voice; green/red are DATA only. */
+  --bg0: #0c0b0a; /* Deepest canvas */
+  --bg1: #15130f; /* Main panels & sidebar (surface) */
+  --bg2: #1d1a15; /* Elevated cards & table headers (raised) */
+  --bg3: #232019; /* Hover states & subtle accents */
+  --bg4: #3d382e; /* Active states */
+
+  --border: #2b271f;  /* Soft dividers */
+  --border2: #3d382e; /* Prominent dividers */
+
+  --t0: #f7f5f1; /* Primary headings & tickers */
+  --t1: #e4e0d8; /* Secondary text */
+  --t2: #a8a196; /* Labels & muted text */
+  --t3: #78716a; /* Disabled / very muted */
+
   --green: #10b981;
   --green-d: #059669;
-  --green-bg: rgba(16, 185, 129, 0.12);
-  
-  --red: #ef4444;
-  --red-d: #dc2626;
-  --red-bg: rgba(239, 68, 68, 0.12);
-  
-  --blue: #3b82f6;
-  --blue-d: #2563eb;
-  --blue-bg: rgba(59, 130, 246, 0.12);
-  
-  --amber: #f59e0b;
-  --amber-bg: rgba(245, 158, 11, 0.12);
-  
+  --green-bg: rgba(16, 185, 129, 0.15);
+
+  --red: #f04438;
+  --red-d: #d92d20;
+  --red-bg: rgba(240, 68, 56, 0.15);
+
+  /* --blue is retired as a hue: remapped to the amber brand/interactive voice so that
+     focus rings, active nav/sort, and primary buttons reskin automatically. Symbol/identity
+     and HOLD/neutral usages are individually overridden to stay off amber (discipline: amber
+     is brand/attention only). */
+  --blue: #e8a838;
+  --blue-d: #b7841f;
+  --blue-bg: rgba(232, 168, 56, 0.14);
+
+  --amber: #f0a92e;  /* caution accent (Trim / watch) */
+  --amber-bg: rgba(240, 169, 46, 0.15);
+
+  --raise-hl: rgba(255,250,240,0.05);
+
   --font-mono: 'JetBrains Mono', monospace;
-  --font: 'DM Sans', sans-serif;
-  
-  --r: 6px; 
-  --r2: 12px; 
+  --font: 'Inter', sans-serif;
+
+  --r: 6px;
+  --r2: 12px;
   --tr: 150ms ease-in-out;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-md: 0 12px 34px rgba(0,0,0,0.6);
 }
 
 html{font-size:13px;background:var(--bg0);color:var(--t0);font-family:var(--font);-webkit-font-smoothing: antialiased;}
@@ -84,7 +91,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .sr-item{padding:10px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;border-bottom:1px solid var(--border);transition:var(--tr)}
 .sr-item:last-child{border-bottom:none}
 .sr-item:hover{background:var(--bg2)}
-.sr-sym{font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--blue);min-width:90px}
+.sr-sym{font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--t0);min-width:90px}
 .sr-name{font-size:12.5px;color:var(--t1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .date-pill{font-family:var(--font-mono);font-size:11.5px;color:var(--t2);background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:4px 10px;white-space:nowrap}
 
@@ -93,8 +100,8 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .sidebar{width:240px;min-width:240px;background:var(--bg1);border-right:1px solid var(--border);overflow-y:auto;padding:16px 0;box-shadow: 1px 0 5px rgba(0,0,0,0.1);}
 .main.sb-hidden .sidebar{display:none}
 .wl-star{cursor:pointer;color:var(--t3);font-size:14px;margin-right:6px;transition:var(--tr)}
-.wl-star:hover{color:#f59e0b}
-.wl-star.on{color:#f59e0b}
+.wl-star:hover{color:var(--amber)}
+.wl-star.on{color:var(--amber)}
 .sr-item.active{background:var(--bg2)}
 .content-area{flex:1;overflow-y:auto;position:relative;background:var(--bg0);}
 
@@ -148,11 +155,28 @@ tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:backgro
 tbody tr:hover{background:var(--bg2)}
 td{padding:8px 12px;text-align:right;white-space:nowrap;vertical-align:middle;color:var(--t1)}
 td:first-child,td:nth-child(2){text-align:left}
-.sym-cell{font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--blue)}
+.sym-cell{font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--t0)}
+tbody tr:hover .sym-cell{color:var(--amber)}
 .name-cell{font-size:12px;color:var(--t0);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;}
 .sec-tag{font-size:10px;color:var(--t2);background:var(--bg3);border-radius:4px;padding:2px 6px;margin-top:2px;display:inline-block;}
 .mono{font-family:var(--font-mono)}
 .pos{color:var(--green)}.neg{color:var(--red)}.neu{color:var(--t2)}
+
+/* ── RSI banded color-coding (aligned with verdict_engine RSI treatment) ──
+   Full-strength green is reserved for a genuinely healthy band, NOT just a high number:
+   >=70 reads as overbought caution (amber), 60–70 healthy (green), <40 weak (red). */
+.rsi-hot{color:var(--amber);font-weight:700}
+.rsi-strong{color:var(--green);font-weight:700}
+.rsi-weak{color:var(--red)}
+
+/* ── Signature tape-flash: direction-of-change wash on genuine data reload ──
+   inset box-shadow overlays a cell without disturbing its background. Gated in JS by a
+   per-symbol value diff, so sort/filter/search/pagination never flash (no value change). */
+@keyframes tp-flash-up{0%{box-shadow:inset 0 0 0 999px rgba(16,185,129,0.24)}100%{box-shadow:inset 0 0 0 999px transparent}}
+@keyframes tp-flash-dn{0%{box-shadow:inset 0 0 0 999px rgba(240,68,56,0.24)}100%{box-shadow:inset 0 0 0 999px transparent}}
+.tp-fu{animation:tp-flash-up .75s ease-out}
+.tp-fd{animation:tp-flash-dn .75s ease-out}
+@media (prefers-reduced-motion:reduce){.tp-fu,.tp-fd{animation:none!important}.spin{animation:none!important}}
 
 /* ── UI ELEMENTS ────────────────────── */
 .tp{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-family:var(--font-mono);font-size:11.5px;font-weight:700;background:var(--bg3);color:var(--t1)}
@@ -160,7 +184,7 @@ td:first-child,td:nth-child(2){text-align:left}
 .tp-med{background:var(--amber-bg);color:var(--amber)}
 .tp-lo{background:var(--bg3);color:var(--t2)}
 .cap{font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;margin-left:6px;}
-.cap-L{background:var(--blue-bg);color:var(--blue)}
+.cap-L{background:rgba(255,255,255,0.07);color:var(--t1)}
 .cap-M{background:var(--amber-bg);color:var(--amber)}
 .cap-S{background:var(--bg3);color:var(--t2)}
 .mbar{display:flex;align-items:center;gap:6px;justify-content:flex-end}
@@ -176,8 +200,8 @@ td:first-child,td:nth-child(2){text-align:left}
 .mcell-pct.f{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,0.3)}
 .mcell-pct.n{background:var(--bg3);color:var(--t2)}
 .ema{font-size:10.5px;padding:3px 6px;border-radius:4px;font-weight:700;}
-.ema-gc{background:var(--blue-bg);color:var(--blue)}
-.ema-a2{background:var(--blue-bg);color:var(--blue)}
+.ema-gc{background:var(--green-bg);color:var(--green)}
+.ema-a2{background:rgba(255,255,255,0.07);color:var(--t1)}
 .ema-ap{background:var(--amber-bg);color:var(--amber)}
 .macd-bull{color:var(--green)}.macd-bear{color:var(--red)}
 
@@ -208,7 +232,7 @@ td:first-child,td:nth-child(2){text-align:left}
 .dp-hdr-info{flex:1;min-width:0}
 .dp-sym{font-family:var(--font-mono);font-size:24px;font-weight:700;color:var(--t0);display:flex;align-items:center;gap:10px}
 .dp-sym:hover{color:var(--blue)}
-.tv-badge{font-size:10px;background:var(--blue-bg);color:var(--blue);border:1px solid rgba(59,130,246,0.3);border-radius:4px;padding:2px 8px;font-family:var(--font);font-weight:700;vertical-align:middle;white-space:nowrap}
+.tv-badge{font-size:10px;background:var(--blue-bg);color:var(--blue);border:1px solid rgba(232,168,56,0.3);border-radius:4px;padding:2px 8px;font-family:var(--font);font-weight:700;vertical-align:middle;white-space:nowrap}
 .dp-name{font-size:13px;color:var(--t1);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;}
 .dp-price{font-family:var(--font-mono);font-size:26px;font-weight:700;margin-top:8px;color:var(--t0)}
 .dp-close{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);color:var(--t1);padding:6px 12px;font-size:14px;transition:var(--tr);flex-shrink:0;cursor:pointer;}
@@ -252,7 +276,7 @@ td:first-child,td:nth-child(2){text-align:left}
 .ss-tab:hover{color:var(--t0)}
 .ss-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
 .rocket{font-size:16px;filter:hue-rotate(200deg)}
-.rpi-val{font-family:var(--font-mono);font-size:13.5px;font-weight:700;color:#c084fc}
+.rpi-val{font-family:var(--font-mono);font-size:13.5px;font-weight:700;color:var(--t1)}
 .rsi-hi{background:var(--green-bg);color:var(--green);border-radius:4px;padding:2px 6px;font-family:var(--font-mono);font-size:12px;font-weight:700;}
 
 /* ── STATES ─────────────────────────── */
@@ -284,9 +308,9 @@ html.light{
   --border:#e2e8f0;--border2:#cbd5e1;
   --t0:#0f172a;--t1:#334155;--t2:#64748b;--t3:#94a3b8;
   --green:#059669;--green-d:#047857;--green-bg:rgba(5,150,105,.1);
-  --red:#dc2626;--red-d:#b91c1c;--red-bg:rgba(220,38,38,.1);
-  --blue:#2563eb;--blue-d:#1d4ed8;--blue-bg:rgba(37,99,235,.1);
-  --amber:#d97706;--amber-bg:rgba(217,119,6,.1);
+  --red:#d92d20;--red-d:#b91c1c;--red-bg:rgba(217,45,32,.1);
+  --blue:#b7841f;--blue-d:#8f6416;--blue-bg:rgba(183,132,31,.12);
+  --amber:#b7841f;--amber-bg:rgba(183,132,31,.12);
 }
 html.light .mat-box.mat-dg{background:#d1fae5;color:#065f46;border-color:#10b981}
 html.light .mat-box.mat-g {background:#ecfdf5;color:#059669;border-color:#34d399}
@@ -339,7 +363,7 @@ html.light .scard{border-color:var(--border)}
 .sector-stock-row{display:grid;grid-template-columns:85px minmax(0,1fr) 65px 45px;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--tr)}
 .sector-stock-row:last-child{border-bottom:none}
 .sector-stock-row:hover{background:var(--bg2)}
-.sector-stock-sym{font-family:var(--font-mono);font-weight:700;color:var(--blue);font-size:13px}
+.sector-stock-sym{font-family:var(--font-mono);font-weight:700;color:var(--t0);font-size:13px}
 .sector-stock-name{font-size:12px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;}
 .sector-tabs{display:flex;gap:0;margin-left:auto;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:var(--bg1)}
 .sector-tab{background:transparent;color:var(--t2);font-size:12px;font-weight:600;padding:6px 12px;cursor:pointer;border:none;font-family:var(--font);transition:var(--tr)}
@@ -352,7 +376,7 @@ html.light .scard{border-color:var(--border)}
 .panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg1)}
 .panel-title{font-weight:700;color:var(--t0);font-size:14px}.panel-sub{color:var(--t2);font-size:12px;margin-top:2px}
 .portfolio-grid{display:grid;grid-template-columns:repeat(7,minmax(130px,1fr));gap:12px}.pf-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r2);padding:14px}.pf-label{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.4px}.pf-value{font-family:var(--font-mono);font-weight:700;font-size:18px;margin-top:8px;color:var(--t0)}
-.pf-actions{display:flex;gap:10px;flex-wrap:wrap}.pf-form{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr)) auto;gap:10px;padding:16px}.pf-form label{font-size:11px;color:var(--t2);font-weight:700;text-transform:uppercase}.pf-field{display:flex;flex-direction:column;gap:5px}.pf-note{font-size:12px;color:var(--t2);line-height:1.5;padding:0 16px 16px}.pf-table-wrap{overflow:auto}.status-pill{display:inline-flex;border:1px solid var(--border2);border-radius:999px;padding:2px 8px;font-size:10px;font-weight:800}.status-active{color:var(--green);background:var(--green-bg)}.status-sold{color:var(--t2);background:var(--bg2)}.status-missing{color:var(--amber);background:var(--amber-bg)}.rec{font-weight:800;font-size:11px}.rec-add{color:var(--green)}.rec-hold{color:var(--blue)}.rec-trim{color:var(--amber)}.rec-exit{color:var(--red)}.mini-bars{display:flex;flex-direction:column;gap:8px;padding:16px}.mini-bar{display:grid;grid-template-columns:150px 1fr 56px;gap:10px;align-items:center;font-size:12px;color:var(--t1)}.mini-track{height:8px;background:var(--bg2);border-radius:999px;overflow:hidden}.mini-fill{height:100%;background:var(--blue)}.auth-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:16px}.hidden{display:none!important}.file-input{color:var(--t1);font-size:12px}.table-actions{display:flex;gap:6px;flex-wrap:wrap}.link-btn{color:var(--blue);font-size:12px;font-weight:700}.danger-btn{color:var(--red);font-size:12px;font-weight:700}
+.pf-actions{display:flex;gap:10px;flex-wrap:wrap}.pf-form{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr)) auto;gap:10px;padding:16px}.pf-form label{font-size:11px;color:var(--t2);font-weight:700;text-transform:uppercase}.pf-field{display:flex;flex-direction:column;gap:5px}.pf-note{font-size:12px;color:var(--t2);line-height:1.5;padding:0 16px 16px}.pf-table-wrap{overflow:auto}.status-pill{display:inline-flex;border:1px solid var(--border2);border-radius:999px;padding:2px 8px;font-size:10px;font-weight:800}.status-active{color:var(--green);background:var(--green-bg)}.status-sold{color:var(--t2);background:var(--bg2)}.status-missing{color:var(--amber);background:var(--amber-bg)}.rec{font-weight:800;font-size:11px}.rec-add{color:var(--green)}.rec-hold{color:var(--t2)}.rec-trim{color:var(--amber)}.rec-exit{color:var(--red)}.mini-bars{display:flex;flex-direction:column;gap:8px;padding:16px}.mini-bar{display:grid;grid-template-columns:150px 1fr 56px;gap:10px;align-items:center;font-size:12px;color:var(--t1)}.mini-track{height:8px;background:var(--bg2);border-radius:999px;overflow:hidden}.mini-fill{height:100%;background:var(--blue)}.auth-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:16px}.hidden{display:none!important}.file-input{color:var(--t1);font-size:12px}.table-actions{display:flex;gap:6px;flex-wrap:wrap}.link-btn{color:var(--blue);font-size:12px;font-weight:700}.danger-btn{color:var(--red);font-size:12px;font-weight:700}
 @media(max-width:1200px){.portfolio-grid{grid-template-columns:repeat(3,1fr)}.pf-form{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:680px){body{overflow:auto}.app{height:auto;min-height:100vh}.topbar{height:auto;min-height:52px;flex-wrap:wrap;padding:10px}.sidebar{display:none}.portfolio-grid,.auth-grid,.pf-form{grid-template-columns:1fr}.srch-input{width:160px}.srch-input:focus{width:190px}.mini-bar{grid-template-columns:1fr}.topbar-right{width:100%;flex-wrap:wrap}}
 
@@ -375,14 +399,15 @@ html.light .scard{border-color:var(--border)}
   </nav>
   <div class="topbar-right">
       <a class="pb" id="authBtn" href="./portfolio.html" style="font-size:11.5px;padding:6px 12px;display:inline-flex;align-items:center;text-decoration:none">Login</a>
-      <button id="themeBtn" onclick="toggleTheme()" title="Toggle light/dark" style="background:none;border:1px solid var(--border);border-radius:var(--r);color:var(--t1);padding:4px 9px;font-size:13px;cursor:pointer">🌙</button>
+      <button id="themeBtn" onclick="toggleTheme()" title="Toggle light/dark" aria-label="Toggle light and dark theme" aria-pressed="false" style="background:none;border:1px solid var(--border);border-radius:var(--r);color:var(--t1);padding:4px 9px;font-size:13px;cursor:pointer">🌙</button>
     <div class="srch-wrap" id="srchWrap">
-      <span class="srch-icon">⌕</span>
-      <input class="srch-input" id="srchInput" type="text"
+      <span class="srch-icon" aria-hidden="true">⌕</span>
+      <input class="srch-input" id="srchInput" type="text" aria-label="Search symbol or company"
+             role="combobox" aria-expanded="false" aria-controls="srchDD" aria-autocomplete="list"
              placeholder="Search symbol or company…  ( / )" autocomplete="off"/>
-      <div class="srch-dd" id="srchDD"></div>
+      <div class="srch-dd" id="srchDD" role="listbox" aria-label="Search results"></div>
     </div>
-    <button class="pb" id="xlBtn" onclick="downloadExcel()" style="font-size:11.5px;padding:6px 12px;background:var(--green-d);color:#fff;border:none;font-weight:600;" title="Download today's 12-day matrix as Excel">⬇ Excel</button>
+    <button class="pb" id="xlBtn" onclick="downloadExcel()" style="font-size:11.5px;padding:6px 12px;background:var(--blue-d);color:var(--bg0);border:none;font-weight:600;" title="Download today's 12-day matrix as Excel" aria-label="Download today's 12-day matrix as Excel">⬇ Excel</button>
     <div class="date-pill" id="datePill">—</div>
   </div>
 </header>
@@ -497,11 +522,11 @@ html.light .scard{border-color:var(--border)}
           <option value="desc">↓ Desc</option>
           <option value="asc">↑ Asc</option>
         </select>
-        <div class="vtoggle">
-          <button class="active" id="btnTable">▤ Table</button>
-          <button id="btnWatch" onclick="toggleWatchMode()" title="Show only your watchlist">★ Watchlist</button>
+        <div class="vtoggle" role="group" aria-label="Table or watchlist view">
+          <button class="active" id="btnTable" aria-pressed="true">▤ Table</button>
+          <button id="btnWatch" onclick="toggleWatchMode()" title="Show only your watchlist" aria-label="Show only your watchlist" aria-pressed="false">★ Watchlist</button>
         </div>
-        <button class="pb" onclick="toggleSidebar()" title="Show/hide the filter sidebar" style="margin-left:auto">⚟ Filters</button>
+        <button class="pb" id="btnFilters" onclick="toggleSidebar()" title="Show/hide the filter sidebar" aria-label="Show or hide the filter sidebar" aria-expanded="true" style="margin-left:auto">⚟ Filters</button>
       </div>
       <div id="tableWrap"></div>
       <div id="pgnWrap"></div>
@@ -577,6 +602,8 @@ let srchTimer = null;
 let AUTH_TOKEN = localStorage.getItem('tp_token') || '';
 let WATCHLIST = new Set();   // symbols the logged-in user has starred
 let WATCH_MODE = false;      // true = screener table shows only the watchlist
+let PREV_SCREENER = null;          // {sym: {field: value}} snapshot from the last data load
+let PENDING_SCREENER_FLASH = null; // {sym: {field: dir}} consumed by one render, then cleared
 
 // ── FORMAT HELPERS ──────────────────────────────────────────────
 const f1   = v => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(1);
@@ -585,6 +612,16 @@ const fPct = v => (v == null || isNaN(v)) ? '—' : (v >= 0 ? '+' : '') + Number
 const inr  = v => (v == null || isNaN(v)) ? '—' : '₹' + Number(v).toLocaleString('en-IN',{maximumFractionDigits:2});
 const fNum = v => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('en-IN');
 const pCls = v => (v == null || isNaN(v)) ? 'neu' : Number(v) > 0 ? 'pos' : Number(v) < 0 ? 'neg' : 'neu';
+// RSI color band. Full-strength green is reserved for a healthy 60–70 reading; >=70 is
+// overbought caution (amber), <40 is weak (red). Mirrors verdict_engine's overbought treatment.
+function rsiCls(v) {
+  const n = Number(v);
+  if (!isFinite(n)) return '';
+  if (n >= 70) return 'rsi-hot';     // overbought — caution
+  if (n >= 60) return 'rsi-strong';  // healthy momentum
+  if (n < 40)  return 'rsi-weak';    // weak / oversold
+  return '';                          // neutral 40–60
+}
 
 function tpill(d) {
   if (d == null) return '—';
@@ -596,7 +633,7 @@ function tpill(d) {
 function mbar(s) {
   if (s == null || isNaN(s)) return '—';
   const n = Math.round(Number(s));
-  const col = n >= 70 ? '#10b981' : n >= 40 ? '#f59e0b' : '#ef4444';
+  const col = n >= 70 ? '#10b981' : n >= 40 ? '#f0a92e' : '#f04438';
   return `<div class="mbar"><span class="mono" style="font-size:11.5px;font-weight:700;color:${col};min-width:22px">${n}</span><div class="mbar-bg"><div class="mbar-fg" style="width:${n}%;background:${col}"></div></div></div>`;
 }
 
@@ -757,6 +794,8 @@ async function toggleWatch(sym, ev) {
     document.querySelectorAll(`.wl-star[data-sym="${sym}"]`).forEach(el => {
       el.classList.toggle('on', !watched);
       el.textContent = watched ? '☆' : '★';
+      el.setAttribute('aria-pressed', String(!watched));
+      el.setAttribute('aria-label', watched ? `Add ${sym} to watchlist` : `Remove ${sym} from watchlist`);
     });
     toast(watched ? `${sym} removed from watchlist` : `${sym} added to watchlist ★`);
     if (WATCH_MODE) loadScreener();
@@ -765,25 +804,31 @@ async function toggleWatch(sym, ev) {
 
 function starHtml(sym) {
   const on = WATCHLIST.has(sym);
-  return `<span class="wl-star${on ? ' on' : ''}" data-sym="${sym}" title="Toggle watchlist" onclick="toggleWatch('${sym}', event)">${on ? '★' : '☆'}</span>`;
+  const lbl = on ? `Remove ${sym} from watchlist` : `Add ${sym} to watchlist`;
+  return `<span class="wl-star${on ? ' on' : ''}" data-sym="${sym}" role="button" aria-pressed="${on}" aria-label="${lbl}" title="Toggle watchlist" onclick="toggleWatch('${sym}', event)">${on ? '★' : '☆'}</span>`;
 }
 
 function toggleWatchMode() {
   if (!AUTH_TOKEN && !WATCH_MODE) { toast('Log in (Portfolio page) to use the watchlist'); return; }
   WATCH_MODE = !WATCH_MODE;
-  document.getElementById('btnWatch').classList.toggle('active', WATCH_MODE);
+  const bw = document.getElementById('btnWatch');
+  bw.classList.toggle('active', WATCH_MODE);
+  bw.setAttribute('aria-pressed', String(WATCH_MODE));
   loadScreener();
 }
 
 function toggleSidebar() {
   const main = document.querySelector('.main');
   main.classList.toggle('sb-hidden');
-  localStorage.setItem('tp_sidebar_hidden', main.classList.contains('sb-hidden') ? '1' : '');
+  const hidden = main.classList.contains('sb-hidden');
+  document.getElementById('btnFilters').setAttribute('aria-expanded', String(!hidden));
+  localStorage.setItem('tp_sidebar_hidden', hidden ? '1' : '');
 }
 
 async function loadScreener() {
   loading('tableWrap');
   document.getElementById('pgnWrap').innerHTML = '';
+  PENDING_SCREENER_FLASH = null;   // watchlist/interaction renders never flash
   if (WATCH_MODE) {
     try {
       const d = await apiFetch('/api/watchlist');
@@ -811,7 +856,25 @@ async function loadScreener() {
       document.getElementById('tableWrap').innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div>No stocks match filters</div></div>';
       return;
     }
-    document.getElementById('tableWrap').innerHTML = renderTable(d.data);
+    // Tape-flash: diff this load's per-symbol values against the previous load. Sort/filter/
+    // search/pagination re-fetch the SAME snapshot, so matching symbols show no change → no
+    // flash; only a genuine data reload (changed numbers for the same symbol) flashes.
+    const rows = d.data;
+    const FLASH_FIELDS = ['close_price', 'momentum_score', 'rsi_14', 'rsi_1d', 'adx_14', 'chg_1d'];
+    if (PREV_SCREENER) {
+      PENDING_SCREENER_FLASH = {};
+      rows.forEach(r => {
+        const prev = PREV_SCREENER[r.symbol]; if (!prev) return;
+        const ch = {};
+        FLASH_FIELDS.forEach(k => { const a = Number(prev[k]), b = Number(r[k]); if (isFinite(a) && isFinite(b) && a !== b) ch[k] = b - a; });
+        if (Object.keys(ch).length) PENDING_SCREENER_FLASH[r.symbol] = ch;
+      });
+    }
+    PREV_SCREENER = {};
+    rows.forEach(r => { PREV_SCREENER[r.symbol] = { close_price: r.close_price, momentum_score: r.momentum_score, rsi_14: r.rsi_14, rsi_1d: r.rsi_1d, adx_14: r.adx_14, chg_1d: r.chg_1d }; });
+
+    document.getElementById('tableWrap').innerHTML = renderTable(rows);
+    PENDING_SCREENER_FLASH = null;   // consumed — later sort/filter re-renders won't flash
     document.getElementById('tableWrap').querySelectorAll('tr[data-sym]').forEach(tr => {
       tr.addEventListener('click', () => openDP(tr.dataset.sym));
     });
@@ -822,6 +885,11 @@ async function loadScreener() {
 }
 
 function renderTable(rows) {
+  // Appends a tape-flash class to a cell when this reload changed that symbol's value.
+  const fl = (sym, field) => {
+    const d = PENDING_SCREENER_FLASH && PENDING_SCREENER_FLASH[sym] && PENDING_SCREENER_FLASH[sym][field];
+    return d ? (d > 0 ? ' tp-fu' : ' tp-fd') : '';
+  };
   const hdr = `<thead><tr>
     <th style="text-align:left" onclick="sortBy('symbol')">Symbol ⇅</th>
     <th style="text-align:left" onclick="sortBy('company_name')">Company ⇅</th>
@@ -832,7 +900,7 @@ function renderTable(rows) {
     <th onclick="sortBy('ema_signal')">EMA</th>
     <th onclick="sortBy('macd_hist')">MACD ⇅</th>
     <th onclick="sortBy('rs_score')">RS ⇅</th>
-    <th onclick="sortBy('weighted_rpi')" style="color:#c084fc">wRPI ⇅</th>
+    <th onclick="sortBy('weighted_rpi')" style="color:var(--t1)">wRPI ⇅</th>
     <th onclick="sortBy('momentum_score')">Mom ⇅</th>
     <th onclick="sortBy('close_price')">Price ⇅</th>
     <th onclick="sortBy('chg_12d')">12d% ⇅</th>
@@ -852,18 +920,18 @@ function renderTable(rows) {
         <span class="sec-tag">${r.sector||''}</span>
       </td>
       <td>${tpill(r.trending_days)}</td>
-      <td class="mono" style="${Number(r.rsi_14)>60?'color:var(--green);font-weight:700':Number(r.rsi_14)<40?'color:var(--red)':''}">${f1(r.rsi_14)}</td>
-      <td class="mono" style="${Number(r.rsi_1d)>60?'color:var(--green);font-weight:700':''}">${f1(r.rsi_1d)}</td>
-      <td class="mono">${f1(r.adx_14)}</td>
+      <td class="mono ${rsiCls(r.rsi_14)}${fl(r.symbol,'rsi_14')}">${f1(r.rsi_14)}</td>
+      <td class="mono ${rsiCls(r.rsi_1d)}${fl(r.symbol,'rsi_1d')}">${f1(r.rsi_1d)}</td>
+      <td class="mono${fl(r.symbol,'adx_14')}">${f1(r.adx_14)}</td>
       <td>${emaBadge(r.ema_signal)}</td>
       <td>${macdCell(r.macd_hist)}</td>
       <td class="mono">${f1(r.rs_score)}</td>
-      <td class="mono" style="color:#c084fc;font-weight:700;">${f1(r.weighted_rpi)}</td>
-      <td>${mbar(r.momentum_score)}</td>
-      <td class="mono">${inr(r.close_price)}</td>
+      <td class="mono" style="color:var(--t1);font-weight:700;">${f1(r.weighted_rpi)}</td>
+      <td class="${fl(r.symbol,'momentum_score').trim()}">${mbar(r.momentum_score)}</td>
+      <td class="mono${fl(r.symbol,'close_price')}">${inr(r.close_price)}</td>
       <td class="${pCls(r.chg_12d)} mono" style="font-weight:600;">${fPct(r.chg_12d)}</td>
       <td class="${pCls(r.chg_5d)} mono">${fPct(r.chg_5d)}</td>
-      <td class="${pCls(r.chg_1d)} mono">${fPct(r.chg_1d)}</td>
+      <td class="${pCls(r.chg_1d)} mono${fl(r.symbol,'chg_1d')}">${fPct(r.chg_1d)}</td>
       ${matCells(r.pct_matrix, r.ema_50, r.ema_200)}
     </tr>`).join('');
   return `<div class="twrap"><table>${hdr}<tbody>${body}</tbody></table></div>`;
@@ -920,7 +988,7 @@ function sectorScore(s) {
   );
 }
 function scoreClass(v){ return v >= 60 ? 'strong' : v >= 38 ? 'neutral' : 'weak'; }
-function breadthColor(v){ return v >= 60 ? '#10b981' : v >= 40 ? '#f59e0b' : '#ef4444'; }
+function breadthColor(v){ return v >= 60 ? '#10b981' : v >= 40 ? '#f0a92e' : '#f04438'; }
 function sectorSortVal(s, sort){ return sort === 'sector_score' ? s.sector_score : Number(s[sort] ?? -1e18); }
 
 async function loadSectors() {
@@ -1137,7 +1205,7 @@ function renderGrouped() {
     const stocks = GRP_DATA[s];
     const isOpen = GRP_OPEN[s] !== false;
     const avgMom = Math.round(stocks.reduce((a,r)=>a+(r.momentum_score||0),0)/stocks.length);
-    const col = avgMom>=70?'#10b981':avgMom>=40?'#f59e0b':'#ef4444';
+    const col = avgMom>=70?'#10b981':avgMom>=40?'#f0a92e':'#f04438';
     const sid = encodeURIComponent(s);
     const tbl = `<div class="twrap"><table>
       <thead><tr><th>Symbol</th><th>Company</th><th>Trend</th><th>12d%</th><th>5d%</th><th>1d%</th><th>EMA</th><th>Mom</th><th>Price</th>
@@ -1222,7 +1290,7 @@ async function downloadExcel() {
 document.getElementById('srchInput').addEventListener('input', function() {
   const q = this.value.trim();
   clearTimeout(srchTimer);
-  if (!q) { document.getElementById('srchDD').classList.remove('open'); return; }
+  if (!q) { document.getElementById('srchDD').classList.remove('open'); this.setAttribute('aria-expanded','false'); return; }
   srchTimer = setTimeout(async () => {
     try {
       const d   = await apiFetch(`/api/search?q=${encodeURIComponent(q)}`);
@@ -1231,7 +1299,7 @@ document.getElementById('srchInput').addEventListener('input', function() {
         sdd.innerHTML = '<div style="padding:16px;color:var(--t2);font-size:13px;text-align:center;font-weight:500;">No results</div>';
       } else {
         sdd.innerHTML = d.results.slice(0,8).map(r =>
-          `<div class="sr-item" data-sym="${r.symbol}">
+          `<div class="sr-item" role="option" aria-selected="false" data-sym="${r.symbol}">
             <span class="sr-sym">${r.symbol}</span>
             <span class="sr-name">${r.company_name||''}</span>
             ${capBadge(r.cap_category)}
@@ -1245,11 +1313,15 @@ document.getElementById('srchInput').addEventListener('input', function() {
         });
       }
       sdd.classList.add('open');
+      document.getElementById('srchInput').setAttribute('aria-expanded','true');
     } catch(e) {}
   }, 280);
 });
 document.getElementById('srchInput').addEventListener('blur', () => {
-  setTimeout(() => document.getElementById('srchDD').classList.remove('open'), 400);
+  setTimeout(() => {
+    document.getElementById('srchDD').classList.remove('open');
+    document.getElementById('srchInput').setAttribute('aria-expanded','false');
+  }, 400);
 });
 
 // ── SUPER STRENGTH ───────────────────────────────────────────────
@@ -1297,7 +1369,7 @@ function renderSSGrid(rows) {
     <th style="text-align:left">Sector</th>
     <th>Cap</th>
     <th onclick="ssSortBy('trending_days')" style="cursor:pointer">Trend${arrow('trending_days')}</th>
-    <th onclick="ssSortBy('weighted_rpi')" style="color:#c084fc;cursor:pointer">wRPI${arrow('weighted_rpi')}</th>
+    <th onclick="ssSortBy('weighted_rpi')" style="color:var(--t1);cursor:pointer">wRPI${arrow('weighted_rpi')}</th>
     <th onclick="ssSortBy('momentum_score')" style="cursor:pointer">Mom${arrow('momentum_score')}</th>
     <th onclick="ssSortBy('rsi_14')" style="cursor:pointer">RSI14${arrow('rsi_14')}</th>
     <th onclick="ssSortBy('adx_14')" style="cursor:pointer">ADX${arrow('adx_14')}</th>
@@ -1307,13 +1379,13 @@ function renderSSGrid(rows) {
   </tr></thead>`;
   const body = rows.map(r => `
     <tr data-sym="${r.symbol}">
-      <td style="text-align:left"><div style="font-weight:700;color:var(--blue);cursor:pointer" onclick="openDP('${r.symbol}')">${r.company_name||r.symbol}</div></td>
+      <td style="text-align:left"><div style="font-weight:700;color:var(--t0);cursor:pointer" onclick="openDP('${r.symbol}')">${r.company_name||r.symbol}</div></td>
       <td style="text-align:left;font-size:12px;color:var(--t1)">${r.sector||'—'}</td>
       <td>${capBadge(r.cap_category)}</td>
       <td>${tpill(r.trending_days)}</td>
-      <td class="mono" style="color:#c084fc;font-weight:700;">${f1(r.weighted_rpi)}</td>
+      <td class="mono" style="color:var(--t1);font-weight:700;">${f1(r.weighted_rpi)}</td>
       <td>${mbar(r.momentum_score)}</td>
-      <td class="mono ${Number(r.rsi_14)>60?'pos':Number(r.rsi_14)<40?'neg':''}">${f1(r.rsi_14)}</td>
+      <td class="mono ${rsiCls(r.rsi_14)}">${f1(r.rsi_14)}</td>
       <td class="mono">${f1(r.adx_14)}</td>
       <td class="${pCls(r.chg_12d)} mono" style="font-weight:600;">${fPct(r.chg_12d)}</td>
       <td class="mono">${inr(r.close_price)}</td>
@@ -1360,7 +1432,9 @@ async function loadSectorList() {
 // ── THEME ────────────────────────────────────────────────────────
 function toggleTheme() {
   const isLight = document.documentElement.classList.toggle('light');
-  document.getElementById('themeBtn').textContent = isLight ? '☀️' : '🌙';
+  const tb = document.getElementById('themeBtn');
+  tb.textContent = isLight ? '☀️' : '🌙';
+  tb.setAttribute('aria-pressed', String(isLight));
   localStorage.setItem('tp_theme', isLight ? 'light' : 'dark');
 }
 if (localStorage.getItem('tp_theme') === 'light') document.documentElement.classList.add('light');
@@ -1373,7 +1447,7 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); input.focus(); input.select();
     return;
   }
-  if (e.key === 'Escape') { dd.classList.remove('open'); closeDP(); return; }
+  if (e.key === 'Escape') { dd.classList.remove('open'); input.setAttribute('aria-expanded','false'); closeDP(); return; }
   if (document.activeElement !== input || !dd.classList.contains('open')) return;
   const items = [...dd.querySelectorAll('.sr-item')];
   if (!items.length) return;
@@ -1381,8 +1455,9 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault();
     const next = e.key === 'ArrowDown' ? Math.min(cur + 1, items.length - 1) : Math.max(cur - 1, 0);
-    items.forEach(el => el.classList.remove('active'));
+    items.forEach(el => { el.classList.remove('active'); el.setAttribute('aria-selected','false'); });
     items[next].classList.add('active');
+    items[next].setAttribute('aria-selected','true');
   } else if (e.key === 'Enter') {
     e.preventDefault();
     (items[cur >= 0 ? cur : 0]).click();

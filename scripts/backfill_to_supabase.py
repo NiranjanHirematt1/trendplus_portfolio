@@ -74,7 +74,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("backfill")
 
-load_dotenv(ROOT / "backend" / ".env")
+load_dotenv(ROOT / ".env")
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
