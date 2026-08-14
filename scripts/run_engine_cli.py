@@ -371,6 +371,15 @@ async def main():
         await pool.close()
         sys.exit(1)
 
+    # ── Step 5: Cup & Handle scan (non-fatal — never breaks the daily run) ─
+    logger.info("Running Cup & Handle scan...")
+    try:
+        from app.services.cup_handle_scan import run_cup_handle_scan
+        scan = await run_cup_handle_scan(pool, today)
+        logger.info("Cup & Handle: %s", scan)
+    except Exception as e:
+        logger.exception("Cup & Handle scan failed (non-fatal): %s", e)
+
     elapsed = time.monotonic() - t0
     logger.info("=" * 55)
     logger.info("  DONE  |  %d symbols  |  %.1fs", summary["symbols"], elapsed)

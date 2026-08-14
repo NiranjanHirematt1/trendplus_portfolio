@@ -238,6 +238,7 @@ window.TPDP = (function () {
   let state = {};              // per-open-symbol scratch: {d, price, txns}
   let tf = localStorage.getItem('tpdp_tf') || '1M';
   let tab = localStorage.getItem('tpdp_tab') || 'overview';
+  let cupTf = localStorage.getItem('tpdp_cuptf') || 'daily';
   const TF_SESSIONS = { '12D': 12, '1M': 22, '6M': 126, '1Y': 252 };
   const TABS = [
     ['overview', 'Overview'], ['technical', 'Technical'], ['financials', 'Financials'],
@@ -305,14 +306,14 @@ window.TPDP = (function () {
 .dp.open{transform:translateX(0)}
 .dp-hdr{padding:14px 18px 0;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg1);z-index:10}
 .dp-hdr-row{display:flex;align-items:flex-start;gap:12px}
-.dp-hdr-info{flex:1;min-width:0}
+.dp-hdr-info{flex:1;min-width:0;padding-right:34px}
 .dp-sym{font-family:var(--font-mono);font-size:21px;font-weight:700;color:var(--t0);display:inline-flex;align-items:center;gap:10px;text-decoration:none;cursor:pointer}
 .dp-sym:hover{color:var(--blue)}
 .dp-name{display:block;font-size:12px;color:var(--t1);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;text-decoration:none;cursor:pointer}
 .dp-name:hover{color:var(--blue)}
 .dp-price-row{display:flex;align-items:baseline;gap:10px;margin-top:5px}
 .dp-price{font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--t0)}
-.dp-close{background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:5px 11px;font-size:13px;flex-shrink:0;cursor:pointer}
+.dp-close{position:absolute;top:12px;right:14px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--t1);padding:5px 11px;font-size:13px;flex-shrink:0;cursor:pointer;z-index:11}
 .dp-close:hover{color:var(--t0);border-color:var(--t2)}
 .dp-ownstrip{display:flex;gap:14px;font:11px var(--font-mono);color:var(--t2);margin-top:6px;flex-wrap:wrap}
 .dp-ownstrip b{color:var(--t0)}
@@ -358,6 +359,13 @@ window.TPDP = (function () {
 .dp .ema-ap{color:#f59e0b;background:rgba(245,158,11,0.15)}
 .dp .macd-bull{color:#10b981;font-family:var(--font-mono);font-weight:700;font-size:12px}
 .dp .macd-bear{color:#ef4444;font-family:var(--font-mono);font-weight:700;font-size:12px}
+.dp .ch-stage-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 10px}
+.dp .ch-stage{font-size:11px;font-weight:700;border-radius:5px;padding:3px 9px;white-space:nowrap}
+.dp .ch-st-cup_forming{color:#f59e0b;background:rgba(245,158,11,0.15)}
+.dp .ch-st-handle_forming{color:#eab308;background:rgba(234,179,8,0.15)}
+.dp .ch-st-breakout{color:#10b981;background:rgba(16,185,129,0.15)}
+.dp .ch-st-confirmed{color:#0c0b0a;background:#10b981}
+.dp .ch-score{font-family:var(--font-mono);font-weight:700;font-size:13px}
 .dp .cap{font-size:10px;font-weight:700;border-radius:4px;padding:2px 6px;margin-left:6px}
 .dp .cap-L{color:var(--t1);background:rgba(255,255,255,0.07)}
 .dp .cap-M{color:#a855f7;background:rgba(168,85,247,0.15)}
@@ -534,6 +542,52 @@ window.TPDP = (function () {
       ])}`;
   }
 
+  const CUP_STAGE_LABEL = {
+    cup_forming: 'Cup forming', handle_forming: 'Handle forming',
+    breakout: 'Breakout', confirmed: 'Confirmed',
+  };
+
+  function cupScore(s) {
+    if (s == null || isNaN(s)) return '';
+    const n = Math.round(Number(s));
+    const col = n >= 70 ? '#10b981' : n >= 45 ? '#f59e0b' : '#ef4444';
+    return `<span class="ch-score" style="color:${col}">Score ${n}<span style="color:var(--t3)">/100</span></span>`;
+  }
+
+  function cupSection() {
+    const unit = cupTf === 'weekly' ? ' wks' : ' days';
+    const toggle = `<span class="dp-tf" id="dpCupTf">${['daily', 'weekly'].map(k =>
+      `<button data-cuptf="${k}" class="${k === cupTf ? 'active' : ''}">${k[0].toUpperCase() + k.slice(1)}</button>`).join('')}</span>`;
+    const head = `<div class="dp-sec-ttl"><span>Cup &amp; Handle</span>${toggle}</div>`;
+    if (state.cup === undefined)
+      return head + '<div class="ld"><div class="spin"></div> Scanning…</div>';
+    const p = state.cup[cupTf];
+    if (!p)
+      return head + `<div class="dp-note" style="padding:8px 0">No Cup &amp; Handle pattern detected on the ${cupTf} timeframe.</div>`;
+    const meta = p.meta || {};
+    const brk = p.breakout
+      ? `<span class="pos">Yes — closed above ${inr(p.resistance)}</span>`
+      : `<span class="neu">No — needs a close above ${inr(p.resistance)}</span>`;
+    const vol = p.volume_ratio != null
+      ? `<span class="${meta.volume_confirmed ? 'pos' : ''}">${Number(p.volume_ratio).toFixed(2)}× avg${meta.volume_confirmed ? ' ✓' : ''}</span>`
+      : '—';
+    return head + `
+      <div class="ch-stage-row">
+        <span class="ch-stage ch-st-${p.stage}">${CUP_STAGE_LABEL[p.stage] || p.stage}</span>
+        ${cupScore(p.pattern_score)}
+      </div>
+      ${mboxes([
+        ['Cup depth', p.cup_depth_pct != null ? Number(p.cup_depth_pct).toFixed(1) + '%' : '—'],
+        ['Cup duration', p.cup_duration != null ? p.cup_duration + unit : '—'],
+        ['Handle depth', p.handle_depth_pct != null ? Number(p.handle_depth_pct).toFixed(1) + '%' : '—'],
+        ['Handle duration', p.handle_duration != null ? p.handle_duration + unit : '—'],
+        ['Resistance', inr(p.resistance)],
+        ['Right-rim recovery', meta.right_rim_recovery_pct != null ? Number(meta.right_rim_recovery_pct).toFixed(0) + '%' : '—'],
+        ['Breakout', brk, true],
+        ['Volume confirmation', vol, true],
+      ])}`;
+  }
+
   function tabTechnical() {
     const lat = (state.d && state.d.latest) || {};
     const pm = lat.pct_matrix || {}, bm = lat.bool_matrix || {};
@@ -547,6 +601,7 @@ window.TPDP = (function () {
     }).join('') : '<div class="dp-note">No 12-day matrix stored for this date.</div>';
     const peers = (state.d && state.d.peers) || [];
     return `
+      ${cupSection()}
       <div class="dp-sec-ttl">MACD &amp; EMA</div>
       ${mboxes([
         ['MACD hist', macdCell(lat.macd_hist)],
@@ -689,6 +744,12 @@ window.TPDP = (function () {
     if (tab === 'technical') {
       document.querySelectorAll('#dpBody td[data-peer]').forEach(td =>
         td.addEventListener('click', () => open(td.dataset.peer)));
+      document.querySelectorAll('#dpCupTf button').forEach(b =>
+        b.addEventListener('click', () => {
+          cupTf = b.dataset.cuptf;
+          localStorage.setItem('tpdp_cuptf', cupTf);
+          renderBody();
+        }));
     }
     if (tab === 'portfolio') {
       const h = owned();
@@ -718,6 +779,9 @@ window.TPDP = (function () {
       api(`/api/symbol/${encodeURIComponent(sym)}/price?days=252`).then(d => {
         if (currentSym === sym) { state.price = (d.data || []).slice().reverse(); if (tab === 'overview') renderBody(); }
       }).catch(() => {}),
+      api(`/api/cup-handle/${encodeURIComponent(sym)}`).then(d => {
+        if (currentSym === sym) { state.cup = { daily: d.daily || null, weekly: d.weekly || null }; if (tab === 'technical') renderBody(); }
+      }).catch(() => { if (currentSym === sym) { state.cup = { daily: null, weekly: null }; if (tab === 'technical') renderBody(); } }),
     ];
     if (h) {
       jobs.push(api(`/api/portfolio/holdings/${h.id}/transactions`).then(d => {

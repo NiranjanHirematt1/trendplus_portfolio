@@ -204,6 +204,11 @@ tbody tr:hover .sym-cell{color:var(--amber)}
 .ema-a2{background:rgba(255,255,255,0.07);color:var(--t1)}
 .ema-ap{background:var(--amber-bg);color:var(--amber)}
 .macd-bull{color:var(--green)}.macd-bear{color:var(--red)}
+.ch-badge{font-size:10.5px;font-weight:700;border-radius:5px;padding:3px 8px;white-space:nowrap;display:inline-block}
+.ch-badge-cup_forming{color:#f59e0b;background:rgba(245,158,11,0.15)}
+.ch-badge-handle_forming{color:#eab308;background:rgba(234,179,8,0.15)}
+.ch-badge-breakout{color:#10b981;background:rgba(16,185,129,0.15)}
+.ch-badge-confirmed{color:var(--bg0);background:#10b981}
 
 /* ── SECTOR GRID ────────────────────── */
 .sec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:20px;background:var(--bg0)}
@@ -395,6 +400,7 @@ html.light .scard{border-color:var(--border)}
     <button class="nav-btn"        id="nav-sectors"  onclick="switchView('sectors')">Sectors</button>
     <button class="nav-btn"        id="nav-grouped"  onclick="switchView('grouped')">By Sector</button>
     <button class="nav-btn"        id="nav-super"    onclick="switchView('super')">Super Strength</button>
+    <button class="nav-btn"        id="nav-cuphandle" onclick="switchView('cuphandle')">Cup &amp; Handle</button>
     <a class="nav-btn"             id="nav-portfolio" href="./portfolio.html" style="display:inline-flex;align-items:center;text-decoration:none">Portfolio</a>
   </nav>
   <div class="topbar-right">
@@ -581,6 +587,34 @@ html.light .scard{border-color:var(--border)}
       <div id="ssGrid"><div class="ld"><div class="spin"></div> Loading…</div></div>
     </div>
 
+    <div class="view" id="view-cuphandle">
+      <div class="toolbar">
+        <span class="cnt-badge" id="chCount">— patterns</span>
+        <div class="vtoggle" role="group" aria-label="Timeframe">
+          <button class="active" id="chTfDaily"  onclick="setCHTf('daily')"  aria-pressed="true">Daily</button>
+          <button id="chTfWeekly" onclick="setCHTf('weekly')" aria-pressed="false">Weekly</button>
+        </div>
+        <select class="tb-sel" id="chStage" onchange="loadCupHandleScreen()">
+          <option value="all">All stages</option>
+          <option value="cup_forming">Cup Forming</option>
+          <option value="handle_forming">Handle Forming</option>
+          <option value="breakout">Breakout</option>
+          <option value="confirmed">Confirmed</option>
+        </select>
+        <select class="tb-sel" id="chCap" onchange="loadCupHandleScreen()">
+          <option value="">All Caps</option>
+          <option>Large Cap</option><option>Mid Cap</option><option>Small Cap</option>
+        </select>
+        <select class="tb-sel" id="chSec" onchange="loadCupHandleScreen()">
+          <option value="">All Sectors</option>
+        </select>
+        <label style="font-size:11.5px;color:var(--t2);display:inline-flex;align-items:center;gap:6px">Min score
+          <input class="finput" id="chMinScore" type="number" min="0" max="100" value="0" style="width:66px" onchange="loadCupHandleScreen()"/>
+        </label>
+      </div>
+      <div id="chGrid"><div class="ld"><div class="spin"></div> Loading…</div></div>
+    </div>
+
   </div></div></div>
 <div class="toast" id="toast"></div>
 
@@ -589,7 +623,7 @@ html.light .scard{border-color:var(--border)}
 'use strict';
 
 // ── CONFIG ─────────────────────────────────────────────────────
-const API = 'https://trendplus-lvkt.onrender.com';
+const API = 'http://localhost:8000';  // change to your server URL if needed
 
 // ── STATE ──────────────────────────────────────────────────────
 let VIEW     = 'screener';
@@ -712,6 +746,7 @@ function switchView(v) {
   if (v === 'sectors') loadSectors();
   if (v === 'grouped') loadGrouped();
   if (v === 'super')   loadSuperStrength();
+  if (v === 'cuphandle') loadCupHandleScreen();
 }
 
 function onSortChange() {
@@ -1395,6 +1430,98 @@ function renderSSGrid(rows) {
   return `<div class="twrap"><table>${hdr}<tbody>${body}</tbody></table></div>`;
 }
 
+// ── CUP & HANDLE SCREENER ────────────────────────────────────────
+let CH_TF       = 'daily';
+let CH_SORT_BY  = 'pattern_score';
+let CH_SORT_ORD = 'desc';
+
+function setCHTf(tf) {
+  CH_TF = tf;
+  const dEl = document.getElementById('chTfDaily'), wEl = document.getElementById('chTfWeekly');
+  dEl.classList.toggle('active', tf === 'daily'); wEl.classList.toggle('active', tf === 'weekly');
+  dEl.setAttribute('aria-pressed', String(tf === 'daily')); wEl.setAttribute('aria-pressed', String(tf === 'weekly'));
+  loadCupHandleScreen();
+}
+
+function chSortBy(col) {
+  CH_SORT_ORD = CH_SORT_BY === col ? (CH_SORT_ORD === 'desc' ? 'asc' : 'desc') : 'desc';
+  CH_SORT_BY  = col;
+  loadCupHandleScreen();
+}
+
+async function loadCupHandleScreen() {
+  loading('chGrid');
+  const stage    = document.getElementById('chStage').value || 'all';
+  const cap      = document.getElementById('chCap').value;
+  const sector   = document.getElementById('chSec').value;
+  const minScore = document.getElementById('chMinScore').value || '0';
+  const qs = new URLSearchParams();
+  qs.set('timeframe', CH_TF);
+  if (stage && stage !== 'all') qs.set('stage', stage);
+  if (cap)    qs.set('cap_category', cap);
+  if (sector) qs.set('sector', sector);
+  if (Number(minScore) > 0) qs.set('min_score', minScore);
+  qs.set('sort_by', CH_SORT_BY);
+  qs.set('order', CH_SORT_ORD);
+  qs.set('page_size', '200');
+  try {
+    const d = await apiFetch('/api/cup-handle?' + qs.toString());
+    const rows  = d.data || [];
+    const total = d.total || 0;
+    document.getElementById('chCount').textContent =
+      total.toLocaleString() + ' patterns' + (total > rows.length ? ` · top ${rows.length}` : '');
+    if (!rows.length) {
+      document.getElementById('chGrid').innerHTML =
+        '<div class="empty"><div class="empty-icon">📉</div><div>No Cup &amp; Handle patterns match these filters</div></div>';
+      return;
+    }
+    document.getElementById('chGrid').innerHTML = renderCHTable(rows);
+    document.getElementById('chGrid').querySelectorAll('tr[data-sym]').forEach(tr =>
+      tr.addEventListener('click', () => openDP(tr.dataset.sym)));
+  } catch (e) {
+    document.getElementById('chGrid').innerHTML =
+      `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+  }
+}
+
+const CH_STAGE_LABEL = { cup_forming: 'Cup Forming', handle_forming: 'Handle Forming', breakout: 'Breakout', confirmed: 'Confirmed' };
+function chStageBadge(st) {
+  return `<span class="ch-badge ch-badge-${st}">${CH_STAGE_LABEL[st] || st}</span>`;
+}
+
+function renderCHTable(rows) {
+  const unit  = CH_TF === 'weekly' ? 'w' : 'd';
+  const arrow = col => col === CH_SORT_BY ? (CH_SORT_ORD === 'desc' ? ' ↓' : ' ↑') : ' ⇅';
+  const hdr = `<thead><tr>
+    <th style="text-align:left">Symbol</th>
+    <th style="text-align:left">Sector</th>
+    <th>Cap</th>
+    <th>TF</th>
+    <th>Stage</th>
+    <th onclick="chSortBy('cup_depth_pct')" style="cursor:pointer">Cup Depth${arrow('cup_depth_pct')}</th>
+    <th onclick="chSortBy('cup_duration')" style="cursor:pointer">Cup Dur${arrow('cup_duration')}</th>
+    <th onclick="chSortBy('handle_depth_pct')" style="cursor:pointer">Handle${arrow('handle_depth_pct')}</th>
+    <th>Breakout</th>
+    <th onclick="chSortBy('volume_ratio')" style="cursor:pointer">Vol×${arrow('volume_ratio')}</th>
+    <th onclick="chSortBy('pattern_score')" style="cursor:pointer">Score${arrow('pattern_score')}</th>
+  </tr></thead>`;
+  const body = rows.map(r => `
+    <tr data-sym="${r.symbol}">
+      <td style="text-align:left"><div style="font-weight:700;color:var(--t0);cursor:pointer">${r.symbol}</div><div style="font-size:11px;color:var(--t2)">${r.company_name || ''}</div></td>
+      <td style="text-align:left;font-size:12px;color:var(--t1)">${r.sector || '—'}</td>
+      <td>${capBadge(r.cap_category)}</td>
+      <td style="font-size:11px;color:var(--t2);text-transform:capitalize">${r.timeframe}</td>
+      <td>${chStageBadge(r.stage)}</td>
+      <td class="mono">${r.cup_depth_pct != null ? f1(r.cup_depth_pct) + '%' : '—'}</td>
+      <td class="mono">${r.cup_duration != null ? r.cup_duration + unit : '—'}</td>
+      <td class="mono">${r.handle_depth_pct != null ? f1(r.handle_depth_pct) + '%' : '—'}</td>
+      <td>${r.breakout ? '<span class="pos" style="font-weight:700">✓ Yes</span>' : '<span class="neu">—</span>'}</td>
+      <td class="mono">${r.volume_ratio != null ? f1(r.volume_ratio) + '×' : '—'}</td>
+      <td>${mbar(r.pattern_score)}</td>
+    </tr>`).join('');
+  return `<div class="twrap"><table>${hdr}<tbody>${body}</tbody></table></div>`;
+}
+
 // ── SIDEBAR SECTOR LIST ──────────────────────────────────────────
 async function loadSectorList() {
   try {
@@ -1402,6 +1529,7 @@ async function loadSectorList() {
     const sel = document.getElementById('fSec');
     const lst = document.getElementById('sbSecList');
     const ssSel = document.getElementById('ssSec');
+    const chSel = document.getElementById('chSec');
     const normMap = {};
     (d.sectors || []).forEach(s => {
       const canonical = normSector(s.sector);
@@ -1414,6 +1542,7 @@ async function loadSectorList() {
       opt.value = s.sector; opt.textContent = s.sector;
       sel.appendChild(opt);
       if(ssSel){ const ssOpt = document.createElement('option'); ssOpt.value = s.sector; ssOpt.textContent = s.sector; ssSel.appendChild(ssOpt); }
+      if(chSel){ const chOpt = document.createElement('option'); chOpt.value = s.sector; chOpt.textContent = s.sector; chSel.appendChild(chOpt); }
       const div = document.createElement('div');
       div.className = 'sec-item'; div.dataset.sec = s.sector;
       const hue = strHash(s.sector) * 137 % 360;
