@@ -1,20 +1,47 @@
 name: Daily Engine Run
 
+# ─────────────────────────────────────────────────────────────────────
+# Three attempts per trading day instead of one.
+#
+# NSE publishes sec_bhavdata_full (the file with OPEN_PRICE, PREV_CLOSE and
+# delivery data) in the evening, not at 4 PM — the old 16:15 IST schedule fired
+# before the file existed, which is one reason every run looked like a holiday.
+#
+# 19:00 / 21:00 / 23:00 IST  =  13:30 / 15:30 / 17:30 UTC.
+# Cron here is UTC. At those hours the IST date still equals the UTC date, so
+# there is no date rollover to worry about.
+#
+# Runs 2 and 3 are free insurance: run_engine_cli.py exits immediately if
+# market_calendar already says 'done' for the date, so a successful 19:00 run
+# makes the later two no-ops.
+# ─────────────────────────────────────────────────────────────────────
+
 on:
   schedule:
-    # 4:15 PM IST = 10:45 UTC (NSE closes 3:30 PM IST, bhav ready ~4 PM)
-    - cron: '45 10 * * 1-5'
+    - cron: '30 13 * * 1-5'      # 19:00 IST
+    - cron: '30 15 * * 1-5'      # 21:00 IST
+    - cron: '30 17 * * 1-5'      # 23:00 IST
   workflow_dispatch:
     inputs:
       trade_date:
-        description: 'Override date YYYY-MM-DD (blank = today)'
+        description: 'Override date YYYY-MM-DD (blank = today IST)'
         required: false
         default: ''
+      force:
+        description: 'Recompute even if the date is already done'
+        type: boolean
+        required: false
+        default: false
+
+# Never let two runs write price_history for the same day at once.
+concurrency:
+  group: daily-engine
+  cancel-in-progress: false
 
 jobs:
   run-engine:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -25,33 +52,59 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
+          cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
 
       - name: Run engine
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          TRADE_DATE:   ${{ github.event.inputs.trade_date }}
+          DATABASE_URL:  ${{ secrets.DATABASE_URL }}
+          TRADE_DATE:    ${{ github.event.inputs.trade_date }}
+          FORCE_RUN:     ${{ github.event.inputs.force == true && '1' || '' }}
+          NSE_ATTEMPTS:  '4'
+          NSE_WAIT_SECS: '90'
         run: python scripts/run_engine_cli.py
 
-      - name: Mark failure in DB
+      # Safety net only. run_engine_cli.py already records its own errors in
+      # market_calendar; this catches the case where it died before it could
+      # (bad import, missing dependency, runner killed).
+      - name: Record failure in market_calendar
         if: failure()
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TRADE_DATE:   ${{ github.event.inputs.trade_date }}
         run: |
           python - <<'EOF'
-          import asyncio, asyncpg, os, datetime
+          import asyncio, datetime, os, asyncpg
+
+          IST = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+          override = os.environ.get("TRADE_DATE", "").strip()
+          day = (datetime.date.fromisoformat(override) if override
+                 else datetime.datetime.now(IST).date())
+          run_url = (f"{os.environ.get('GITHUB_SERVER_URL','')}/"
+                     f"{os.environ.get('GITHUB_REPOSITORY','')}/actions/runs/"
+                     f"{os.environ.get('GITHUB_RUN_ID','')}")
+
           async def mark():
-              pool = await asyncpg.create_pool(os.environ["DATABASE_URL"], min_size=1, max_size=2)
+              pool = await asyncpg.create_pool(os.environ["DATABASE_URL"],
+                                               min_size=1, max_size=2)
               async with pool.acquire() as conn:
-                  await conn.execute("""
-                      insert into market_calendar (trade_date, engine_status, error_message)
-                      values ($1, 'error', 'GitHub Actions job failed')
+                  # Don't clobber a more specific message the script already wrote.
+                  await conn.execute(
+                      """
+                      insert into market_calendar
+                          (trade_date, engine_status, error_message)
+                      values ($1, 'error', $2)
                       on conflict (trade_date) do update set
                           engine_status = 'error',
-                          error_message = 'GitHub Actions job failed'
-                  """, datetime.date.today())
+                          error_message = coalesce(
+                              nullif(market_calendar.error_message, ''),
+                              excluded.error_message)
+                      """,
+                      day, f"GitHub Actions job failed — {run_url}",
+                  )
               await pool.close()
+
           asyncio.run(mark())
           EOF
