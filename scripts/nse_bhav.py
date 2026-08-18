@@ -104,6 +104,14 @@ MIN_TOTAL_TRADES = 3000
 # A real bhavcopy is ~1-2 MB.  Anything tiny is a challenge page or an error.
 MIN_PLAUSIBLE_BYTES = 50_000
 
+# Don't even hit the CDN for *today* before this hour — the file cannot exist.
+EARLIEST_PUBLISH_HOUR_IST = 17
+
+# Don't declare *today* a market holiday before this hour, however convincing
+# the evidence looks. A missing file at 17:30 means "NSE is still working",
+# not "Diwali". Past dates are judged immediately — they've had all evening.
+HOLIDAY_VERDICT_HOUR_IST = 20
+
 
 # ─────────────────────────────────────────────────────────────────────
 #  Errors / result types
@@ -115,7 +123,7 @@ class BhavBlocked(RuntimeError):
 
 @dataclass
 class BhavFetch:
-    outcome: str                  # "ok" | "holiday" | "too_early"
+    outcome: str                  # "ok" | "holiday" | "too_early" | "not_published"
     trade_date: datetime.date
     csv_bytes: bytes | None = None
     source: str = ""              # "full" | "udiff"
@@ -276,7 +284,8 @@ def fetch_bhav(
     # healthy canary, and stamp today as a market holiday hours before the
     # market has even closed.
     now_ist = datetime.datetime.now(IST)
-    if trade_date == now_ist.date() and now_ist.hour < 17:
+    is_today = trade_date == now_ist.date()
+    if is_today and now_ist.hour < EARLIEST_PUBLISH_HOUR_IST:
         return BhavFetch(
             outcome="too_early",
             trade_date=trade_date,
@@ -300,7 +309,20 @@ def fetch_bhav(
                 log.info("Not published yet — waiting %ds before retry.", wait_secs)
                 time.sleep(wait_secs)
 
-        # Still nothing. Holiday, or are we being refused?
+        # Still nothing. Three possibilities: NSE is late, it's a holiday, or
+        # we are being refused. Never guess "holiday" for *today* while NSE
+        # might still be publishing — an early run would stamp a real trading
+        # day as a holiday, and anything reading market_calendar would believe
+        # it. Past dates skip this: their file has had all evening to appear.
+        if is_today and now_ist.hour < HOLIDAY_VERDICT_HOUR_IST:
+            return BhavFetch(
+                outcome="not_published",
+                trade_date=trade_date,
+                reason=(f"not published yet at {now_ist:%H:%M} IST; too early to "
+                        f"call it a holiday (verdict waits until "
+                        f"{HOLIDAY_VERDICT_HOUR_IST}:00 IST)"),
+            )
+
         log.info("File absent after %d attempts — running canary probe.", attempts)
         canary = _canary_reachable(client, trade_date)
 

@@ -69,9 +69,27 @@ Name:  DATABASE_URL
 Value: <your Supabase connection string, same one in backend/.env>
 ```
 
-Use the **session pooler** connection string (port 6543 / `...pooler.supabase.com`),
-not the direct 5432 one — GitHub runners get IPv6-less networking and the direct
-host is IPv6-only on newer Supabase projects.
+Get the value from Supabase → Project Settings → Database → Connection string →
+**Session pooler**. It looks like:
+
+```
+postgresql://postgres.<project-ref>:<password>@aws-<region>.pooler.supabase.com:5432/postgres
+```
+
+Three connection strings are offered and only this one is correct here:
+
+| Option | Host / port | Verdict |
+|---|---|---|
+| Direct | `db.<ref>.supabase.co:5432` | ✗ IPv6-only; GitHub runners have no IPv6 |
+| **Session pooler** | `...pooler.supabase.com:5432` | ✓ IPv4, supports prepared statements |
+| Transaction pooler | `...pooler.supabase.com:6543` | ✗ no prepared statements — asyncpg breaks |
+
+The transaction pooler is the trap: it looks equivalent, it's IPv4 too, but
+asyncpg uses prepared statements by default and transaction mode rejects them.
+You'd get `PreparedStatementError` / `DuplicatePreparedStatementError` partway
+through the run rather than a clean failure at connect time.
+
+Note the pooler username is `postgres.<project-ref>`, not plain `postgres`.
 
 **2. Move the workflow files into place.** The two YAML files were delivered to
 `docs/workflows/` rather than straight into `.github/workflows/`, because

@@ -340,9 +340,10 @@ async def process_date(pool, trade_date: datetime.date, force: bool,
     # ── Fetch ────────────────────────────────────────────────────────
     res = fetch_bhav(trade_date, attempts=attempts, wait_secs=wait)
 
-    if res.outcome == "too_early":
-        logger.info("Too early for %s: %s", trade_date, res.reason)
-        return "too_early"
+    # Neither of these is a verdict — write nothing, let a later run decide.
+    if res.outcome in ("too_early", "not_published"):
+        logger.info("No data yet for %s: %s", trade_date, res.reason)
+        return res.outcome
 
     if res.outcome == "holiday":
         logger.info("Market holiday: %s", res.reason)

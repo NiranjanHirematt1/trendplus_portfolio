@@ -131,6 +131,39 @@ nb.datetime.datetime = real_dt
 check("today before 17:00 IST -> too_early (not holiday)",
       r.outcome == "too_early" and not fc.gets, f"{r.outcome} gets={len(fc.gets)}")
 
+# 8b — today, after 17:00 but before the holiday verdict hour, file missing:
+#      must NOT be called a holiday, and must not even probe the canary.
+class EveningDT(real_dt):
+    @classmethod
+    def now(cls, tz=None):
+        return real_dt(2026, 8, 17, 18, 20, tzinfo=nb.IST)
+nb.datetime.datetime = EveningDT
+fc = patch_client({})
+r = nb.fetch_bhav(MON, attempts=1)
+nb.datetime.datetime = real_dt
+check("today 18:20, file missing -> not_published, no canary probe",
+      r.outcome == "not_published" and not fc.heads,
+      f"{r.outcome} heads={len(fc.heads)}")
+
+# 8c — same missing file, but past the verdict hour: now a holiday call is fair
+class LateDT(real_dt):
+    @classmethod
+    def now(cls, tz=None):
+        return real_dt(2026, 8, 17, 21, 5, tzinfo=nb.IST)
+nb.datetime.datetime = LateDT
+fc = patch_client({"sec_bhavdata_full_14082026": FakeResp(200, BIG)})
+r = nb.fetch_bhav(MON, attempts=1)
+nb.datetime.datetime = real_dt
+check("today 21:05, file missing + healthy canary -> holiday",
+      r.outcome == "holiday", r.outcome)
+
+# 8d — a PAST date is judged immediately, no cutoff wait
+fc = patch_client({"sec_bhavdata_full_17082026": FakeResp(404),
+                   "sec_bhavdata_full_14082026": FakeResp(200, BIG)})
+r = nb.fetch_bhav(MON, attempts=1)
+check("past date -> holiday verdict with no cutoff wait",
+      r.outcome == "holiday", r.outcome)
+
 # 9 — UDiFF fallback only when opted in
 zbuf = io.BytesIO()
 with zipfile.ZipFile(zbuf, "w") as zf:
