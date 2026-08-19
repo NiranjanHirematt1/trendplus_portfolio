@@ -89,6 +89,42 @@ EMA_MIN_ROWS     = EMA_SLOW + 10  # need 210 rows for reliable EMA 200
 # Series to include — EQ (regular) + BE (book entry / trade-to-trade)
 ALLOWED_SERIES   = {"EQ", "BE"}
 
+# ─────────────────────────────────────────────────────────────────────
+#  PERIOD RETURNS REGISTRY
+# ─────────────────────────────────────────────────────────────────────
+# Period returns, in TRADING SESSIONS. Column name -> sessions back.
+# Every offset is measured on pivot COLUMNS (trading sessions), never
+# calendar days.  compute_period_change() / compute_all_period_changes()
+# are driven entirely from this dict.
+#
+# NOTE on chg_5d: the legacy compute_period_changes() measures chg_5d over
+# SIX sessions (today_idx - 6), one more than its "5d" label, while chg_12d
+# and every entry here measure exactly N sessions.  chg_5d is therefore the
+# lone anomaly; it is intentionally left on its legacy code path so the
+# meaning of historical rows is unchanged.  The registry value below (5) is
+# the *correct* offset and is used only by the new generic code paths —
+# chg_5d itself is still produced by compute_period_changes().
+PERIOD_CHANGES = {
+    "chg_1d":   1,
+    "chg_3d":   3,
+    "chg_5d":   5,
+    "chg_12d":  12,
+    "chg_1m":   21,
+    "chg_2m":   42,
+    "chg_3m":   63,
+    "chg_6m":   126,
+    "chg_12m":  252,
+}
+
+# Columns produced by the NEW generic pipeline (compute_all_period_changes).
+# chg_1d/chg_5d/chg_12d keep their existing dedicated code paths.
+NEW_PERIOD_CHANGES = ["chg_3d", "chg_1m", "chg_2m", "chg_3m", "chg_6m", "chg_12m"]
+
+# Horizons eligible for the flexible short-history fallback fill.  Long
+# horizons (>= ~1 month) are deliberately NOT filled — see
+# fill_flexible_period_changes().
+FLEXIBLE_FILL_MAX_SESSIONS = 12
+
 
 # ─────────────────────────────────────────────────────────────────────
 #  STEP 1 — LOAD ALL BHAV FILES
@@ -289,67 +325,135 @@ def compute_period_changes(close_pivot, matrix_dates):
 
 
 # ─────────────────────────────────────────────────────────────────────
+#  STEP 5a — GENERIC N-SESSION PERIOD CHANGE
+# ─────────────────────────────────────────────────────────────────────
+def compute_period_change(close_pivot: pd.DataFrame, sessions: int) -> pd.Series:
+    """
+    Percent change over EXACTLY `sessions` trading sessions:
+
+        (close_today - close[today - sessions]) / close[today - sessions] * 100
+
+    Measured on pivot COLUMNS (trading sessions), matching chg_12d and the
+    RPI returns (_ret()).  Returns a Series indexed by symbol; NaN where a
+    symbol has fewer than `sessions`+1 sessions of history.
+    """
+    n = close_pivot.shape[1]
+    if sessions < 1 or n <= sessions:
+        return pd.Series(np.nan, index=close_pivot.index)
+    today = close_pivot.iloc[:, -1]
+    ref   = close_pivot.iloc[:, -(sessions + 1)]
+    chg   = ((today - ref) / ref * 100).replace([np.inf, -np.inf], np.nan)
+    return chg.round(2)
+
+
+def compute_all_period_changes(close_pivot: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute the NEW multi-horizon returns, driven by PERIOD_CHANGES.
+
+    Returns a DataFrame indexed by Symbol with columns named exactly like the
+    DB columns (so writers can read row.get("chg_1m") directly):
+
+        chg_3d, chg_1m, chg_2m, chg_3m, chg_6m, chg_12m
+
+    chg_1d / chg_5d / chg_12d keep their existing dedicated code paths and are
+    NOT produced here (chg_5d's legacy offset must not change).
+    """
+    data = {}
+    for col in NEW_PERIOD_CHANGES:
+        s = compute_period_change(close_pivot, PERIOD_CHANGES[col])
+        s.name = col
+        data[col] = s
+    df = pd.DataFrame(data, index=close_pivot.index)
+    df.index.name = "Symbol"
+    return df
+
+
+# ─────────────────────────────────────────────────────────────────────
 #  STEP 5b — FLEXIBLE PERIOD-CHANGE FALLBACK
 # ─────────────────────────────────────────────────────────────────────
-def fill_flexible_period_changes(
+def _fill_flexible_one(
     close_pivot: pd.DataFrame,
-    chg_12d:    pd.Series,
-    chg_5d:     pd.Series,
-    window_5:   int = 5,
-    window_12:  int = 12,
-) -> tuple:
+    series:      pd.Series,
+    window:      int,
+) -> pd.Series:
     """
-    For symbols where compute_period_changes returned NaN because they
-    have fewer than N days of history, fill using the EARLIEST available
-    close WITHIN the window.
+    Single-horizon flexible fill.  For symbols whose value is NaN (too little
+    history for a fixed N-session lookback), fill using the EARLIEST non-NaN
+    close within the last `window` trading-day columns.
 
-    Rules:
-      • 5d  change → earliest non-NaN close in last 5  trading-day columns
-      • 12d change → earliest non-NaN close in last 12 trading-day columns
-      • If the symbol has ONLY today's data (no prior point in window) → stays NaN
-      • If the symbol's only data is OUTSIDE the window → stays NaN
-        (prevents stale historical data inflating short-term momentum)
-      • Only fills NaN slots — symbols with existing values are never touched.
-
-    The 12d window cap is intentional: a stock reappearing after 3 months of
-    illiquidity would otherwise show its entire price run as a "12d change".
+    Only NaN slots are touched.  A symbol with no prior point inside the
+    window (or whose only data lies outside it) stays NaN — this is the cap
+    that stops a stock returning from months of illiquidity reporting its
+    whole run as a short-window move.
     """
-    if close_pivot.shape[1] < 2:
-        return chg_12d, chg_5d
-
+    if close_pivot.shape[1] < 2 or window < 1:
+        return series
     today_vals = close_pivot.iloc[:, -1]
     n          = len(close_pivot.columns)
-    win12_cols = close_pivot.columns[max(0, n - window_12):]
-    win5_cols  = close_pivot.columns[max(0, n - window_5):]
-
-    def _earliest_base(sym, window_cols):
-        prior = window_cols[:-1]          # everything except today
-        if len(prior) == 0:
-            return float("nan")
+    win_cols   = close_pivot.columns[max(0, n - window):]
+    prior      = win_cols[:-1]                     # everything except today
+    if len(prior) == 0:
+        return series
+    series = series.copy()
+    for sym in series[series.isna()].index:
+        tc = float(today_vals.get(sym, float("nan")))
+        if pd.isna(tc):
+            continue
         valid = close_pivot.loc[sym, prior].dropna()
-        return float(valid.iloc[0]) if not valid.empty else float("nan")
+        if valid.empty:
+            continue
+        base = float(valid.iloc[0])
+        if base == 0:
+            continue
+        series.at[sym] = round((tc / base - 1) * 100, 2)
+    return series
 
-    chg_12d = chg_12d.copy()
-    for sym in chg_12d[chg_12d.isna()].index:
-        tc = float(today_vals.get(sym, float("nan")))
-        if pd.isna(tc):
-            continue
-        base = _earliest_base(sym, win12_cols)
-        if pd.isna(base) or base == 0:
-            continue
-        chg_12d.at[sym] = round((tc / base - 1) * 100, 2)
 
-    chg_5d = chg_5d.copy()
-    for sym in chg_5d[chg_5d.isna()].index:
-        tc = float(today_vals.get(sym, float("nan")))
-        if pd.isna(tc):
-            continue
-        base = _earliest_base(sym, win5_cols)
-        if pd.isna(base) or base == 0:
-            continue
-        chg_5d.at[sym] = round((tc / base - 1) * 100, 2)
+def fill_flexible_period_changes(
+    close_pivot: pd.DataFrame,
+    changes:     dict,
+    max_fill_sessions: int = FLEXIBLE_FILL_MAX_SESSIONS,
+) -> dict:
+    """
+    Flexible short-history fallback, generalised over PERIOD_CHANGES.
 
-    return chg_12d, chg_5d
+    Parameters
+    ----------
+    close_pivot       : price pivot (symbols × dates, oldest→newest columns)
+    changes           : dict {db_column_name: Series}, e.g.
+                        {"chg_5d": ..., "chg_12d": ..., "chg_3d": ...}
+    max_fill_sessions : only horizons whose session count is <= this are filled
+
+    For every SHORT horizon (sessions <= max_fill_sessions) the NaN slots are
+    filled with the earliest non-NaN close within a trailing window of exactly
+    `sessions` columns.  This reproduces the original behaviour exactly —
+    window 5 for chg_5d, window 12 for chg_12d — and extends it to the new
+    chg_3d (window 3).
+
+    LONG horizons (>= ~1 month) are deliberately NOT filled.  A trailing
+    window that large would let a stock returning from months of illiquidity
+    report its entire run as the period return — the very distortion the
+    window cap was meant to prevent.  Those columns stay NaN when history
+    < sessions.
+
+    'chg_1d' is never window-filled (it is a single-session daily change).
+
+    Returns the SAME dict, with eligible Series replaced by filled copies.
+
+    Signature note: this replaced the old positional form
+    (close_pivot, chg_12d, chg_5d, window_5, window_12) — callers now pass a
+    dict of {column: Series}.
+    """
+    if close_pivot.shape[1] < 2:
+        return changes
+    for col, series in list(changes.items()):
+        sessions = PERIOD_CHANGES.get(col)
+        if sessions is None or col == "chg_1d" or sessions > max_fill_sessions:
+            continue
+        changes[col] = _fill_flexible_one(close_pivot, series, sessions)
+    return changes
+
+
 def wilder_smooth(series, period):
     result = np.full(len(series), np.nan)
     if len(series) < period:
@@ -1278,7 +1382,10 @@ def main():
     print("STEP 5 — Computing 12d and 5d Change%...")
     chg_12d, chg_5d = compute_period_changes(close_piv, matrix_dates)
     # Flexible fallback: symbols with < N days history get earliest-in-window base
-    chg_12d, chg_5d = fill_flexible_period_changes(close_piv, chg_12d, chg_5d)
+    _changes = fill_flexible_period_changes(
+        close_piv, {"chg_5d": chg_5d, "chg_12d": chg_12d}
+    )
+    chg_5d, chg_12d = _changes["chg_5d"], _changes["chg_12d"]
 
     # 6. RSI
     print(f"STEP 6 — RSI({RSI_PERIOD})...")

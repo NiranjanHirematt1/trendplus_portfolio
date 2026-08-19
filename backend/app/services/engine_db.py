@@ -63,6 +63,8 @@ from analytics_engine import (             # noqa: E402
     get_matrix_dates,
     compute_matrices,
     compute_period_changes,
+    compute_all_period_changes,     # NEW: multi-horizon returns
+    fill_flexible_period_changes,   # NEW: short-history fallback fill
     compute_52w_high,
     compute_rs_score,
     compute_weighted_rpi,       # FIX BUG 1: was missing
@@ -95,8 +97,9 @@ MACD_SIGNAL_P = 9
 MACD_MIN_ROWS = MACD_SLOW + MACD_SIGNAL_P   # 35
 
 # Days of price history to pull from DB.
-# EMA 200 needs 210, 52W high needs 252 — use 262 for a safe buffer.
-HISTORY_DAYS = W52_DAYS + 10
+# EMA 200 needs 210, 52W high needs 252, 12M return needs 253 — use a
+# healthy buffer so a holiday-heavy stretch never starves chg_12m.
+HISTORY_DAYS = W52_DAYS + 50   # 302
 
 _BATCH = 500
 
@@ -391,7 +394,9 @@ async def run_engine(
                     hist["SYMBOL"].nunique(), hist["DATE"].nunique())
 
         # ── 3. Build price pivots ──────────────────────────────────────
-        close_piv, high_piv, low_piv = build_price_pivots(hist)
+        # build_price_pivots returns 4 values (adds open_); price_history read
+        # here has no OPEN column so open_piv is unused (Close is the open proxy).
+        close_piv, high_piv, low_piv, open_piv = build_price_pivots(hist)
 
         # ── 4. Compute all metrics ─────────────────────────────────────
         matrix_dates = get_matrix_dates(close_piv, LOOKBACK_DAYS)
@@ -400,6 +405,15 @@ async def run_engine(
             close_piv, matrix_dates
         )
         chg_12d, chg_5d = compute_period_changes(close_piv, matrix_dates)
+        # New multi-horizon returns (chg_3d, chg_1m, chg_2m, chg_3m, chg_6m, chg_12m)
+        period_changes = compute_all_period_changes(close_piv)
+        _changes = fill_flexible_period_changes(close_piv, {
+            "chg_5d":  chg_5d,
+            "chg_12d": chg_12d,
+            "chg_3d":  period_changes["chg_3d"],
+        })
+        chg_5d, chg_12d = _changes["chg_5d"], _changes["chg_12d"]
+        period_changes["chg_3d"] = _changes["chg_3d"]
         high_52w, pct_from_high, near_high, rank_52w = compute_52w_high(
             close_piv, W52_DAYS
         )
@@ -438,7 +452,7 @@ async def run_engine(
 
         result = (
             pd.DataFrame({"Trending Days": trending})
-            .join(chg_12d).join(chg_5d)
+            .join(chg_12d).join(chg_5d).join(period_changes)
             .join(adx).join(rsi).join(rsi_short)    # FIX BUG 2: rsi_short joined
             .join(high_52w).join(pct_from_high)
             .join(near_high).join(rank_52w)
@@ -602,6 +616,12 @@ async def run_engine(
                     if sym in vol_map else None,                             # $36
                 _si(vol_map[sym]["TOTALTRADES"])
                     if sym in vol_map else None,                             # $37
+                _sf(row.get("chg_3d")),                                     # $38
+                _sf(row.get("chg_1m")),                                     # $39
+                _sf(row.get("chg_2m")),                                     # $40
+                _sf(row.get("chg_3m")),                                     # $41
+                _sf(row.get("chg_6m")),                                     # $42
+                _sf(row.get("chg_12m")),                                    # $43
             ))
 
         for start in range(0, len(trend_rows), _BATCH):
@@ -620,7 +640,8 @@ async def run_engine(
                     rpi_2w, rpi_3m, rpi_6m, rpi_6m_sma2w,
                     momentum_score,
                     open_price, high_price, low_price, close_price,
-                    volume, total_trades
+                    volume, total_trades,
+                    chg_3d, chg_1m, chg_2m, chg_3m, chg_6m, chg_12m
                 ) values (
                     $1,$2,$3,$4::jsonb,$5::jsonb,
                     $6,$7,$8,$9,$10,$11,$12,
@@ -631,7 +652,8 @@ async def run_engine(
                     $25,$26,
                     $27,$28,$29,$30,
                     $31,
-                    $32,$33,$34,$35,$36,$37
+                    $32,$33,$34,$35,$36,$37,
+                    $38,$39,$40,$41,$42,$43
                 )
                 on conflict (trade_date, symbol) do update set
                     trending_days  = excluded.trending_days,
@@ -668,7 +690,13 @@ async def run_engine(
                     low_price      = excluded.low_price,
                     close_price    = excluded.close_price,
                     volume         = excluded.volume,
-                    total_trades   = excluded.total_trades
+                    total_trades   = excluded.total_trades,
+                    chg_3d         = excluded.chg_3d,
+                    chg_1m         = excluded.chg_1m,
+                    chg_2m         = excluded.chg_2m,
+                    chg_3m         = excluded.chg_3m,
+                    chg_6m         = excluded.chg_6m,
+                    chg_12m        = excluded.chg_12m
                 """,
                 trend_rows[start : start + _BATCH],
             )

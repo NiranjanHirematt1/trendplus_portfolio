@@ -59,6 +59,8 @@ from analytics_engine import (
     get_matrix_dates,
     compute_matrices,
     compute_period_changes,
+    compute_all_period_changes,     # NEW: multi-horizon returns
+    fill_flexible_period_changes,   # NEW: short-history fallback fill
     compute_52w_high,
     compute_rs_score,
     compute_weighted_rpi,
@@ -83,7 +85,7 @@ from analytics_engine import (
 MACD_FAST     = 12
 MACD_SLOW     = 26
 MACD_SIGNAL_P = 9
-HISTORY_DAYS  = W52_DAYS + 10   # 262 days
+HISTORY_DAYS  = W52_DAYS + 50   # 302 days (52W + EMA200 + 12M return buffer)
 
 _BATCH = 500
 
@@ -300,8 +302,8 @@ async def compute_and_upsert(
         logger.warning("[%s] trade_date not in price_history — skipping", trade_date)
         return 0
 
-    # Build pivots
-    close_piv, high_piv, low_piv = build_price_pivots(hist)
+    # Build pivots (build_price_pivots returns 4 values; open_piv unused here)
+    close_piv, high_piv, low_piv, open_piv = build_price_pivots(hist)
 
     # Ensure trade_date is the last column
     if close_piv.columns[-1] != target_ts:
@@ -312,6 +314,15 @@ async def compute_and_upsert(
     matrix_dates = get_matrix_dates(close_piv, LOOKBACK_DAYS)
     trending, bool_matrix, pct_matrix = compute_matrices(close_piv, matrix_dates)
     chg_12d, chg_5d = compute_period_changes(close_piv, matrix_dates)
+    # New multi-horizon returns (chg_3d, chg_1m, chg_2m, chg_3m, chg_6m, chg_12m)
+    period_changes  = compute_all_period_changes(close_piv)
+    _changes = fill_flexible_period_changes(close_piv, {
+        "chg_5d":  chg_5d,
+        "chg_12d": chg_12d,
+        "chg_3d":  period_changes["chg_3d"],
+    })
+    chg_5d, chg_12d = _changes["chg_5d"], _changes["chg_12d"]
+    period_changes["chg_3d"] = _changes["chg_3d"]
     high_52w, pct_from_high, near_high, rank_52w = compute_52w_high(close_piv, W52_DAYS)
     rs_score     = compute_rs_score(close_piv)
     weighted_rpi = compute_weighted_rpi(close_piv)
@@ -333,7 +344,7 @@ async def compute_and_upsert(
 
     result = (
         pd.DataFrame({"Trending Days": trending})
-        .join(chg_12d).join(chg_5d)
+        .join(chg_12d).join(chg_5d).join(period_changes)
         .join(adx).join(rsi)
         .join(high_52w).join(pct_from_high)
         .join(near_high).join(rank_52w)
@@ -428,6 +439,12 @@ async def compute_and_upsert(
             _safe_float(row.get("Low")),
             _safe_float(row.get("Close")),
             vol, trades,
+            _safe_float(row.get("chg_3d")),    # $30
+            _safe_float(row.get("chg_1m")),    # $31
+            _safe_float(row.get("chg_2m")),    # $32
+            _safe_float(row.get("chg_3m")),    # $33
+            _safe_float(row.get("chg_6m")),    # $34
+            _safe_float(row.get("chg_12m")),   # $35
         ))
 
     # Upsert trend_results
@@ -445,12 +462,14 @@ async def compute_and_upsert(
                 ema_50, ema_200, ema_signal,
                 rs_score, weighted_rpi, momentum_score,
                 open_price, high_price, low_price, close_price,
-                volume, total_trades
+                volume, total_trades,
+                chg_3d, chg_1m, chg_2m, chg_3m, chg_6m, chg_12m
             ) VALUES (
                 $1,$2,$3,$4::jsonb,$5::jsonb,
                 $6,$7,$8,$9,$10,$11,$12,$13,$14,
                 $15,$16,$17,$18,$19,$20,
-                $21,$22,$23,$24,$25,$26,$27,$28,$29
+                $21,$22,$23,$24,$25,$26,$27,$28,$29,
+                $30,$31,$32,$33,$34,$35
             )
             ON CONFLICT (trade_date, symbol) DO UPDATE SET
                 trending_days  = excluded.trending_days,
@@ -479,7 +498,13 @@ async def compute_and_upsert(
                 low_price      = excluded.low_price,
                 close_price    = excluded.close_price,
                 volume         = excluded.volume,
-                total_trades   = excluded.total_trades
+                total_trades   = excluded.total_trades,
+                chg_3d         = excluded.chg_3d,
+                chg_1m         = excluded.chg_1m,
+                chg_2m         = excluded.chg_2m,
+                chg_3m         = excluded.chg_3m,
+                chg_6m         = excluded.chg_6m,
+                chg_12m        = excluded.chg_12m
             """,
             batch,
         )

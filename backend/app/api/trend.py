@@ -21,7 +21,8 @@ router = APIRouter()
 
 VALID_SORT = frozenset({
     "momentum_score", "rs_score", "trending_days",
-    "chg_12d", "chg_5d", "chg_1d",
+    "chg_12d", "chg_5d", "chg_3d", "chg_1d",
+    "chg_1m", "chg_2m", "chg_3m", "chg_6m", "chg_12m",
     "rsi_14", "adx_14",
     "rank_52w", "pct_from_high",
     "close_price", "total_trades", "volume",
@@ -129,7 +130,8 @@ async def get_trend(
             select
                 s.symbol, s.company_name, s.sector, s.cap_category, s.isin,
                 tr.trending_days,
-                tr.chg_1d, tr.chg_5d, tr.chg_12d,
+                tr.chg_1d, tr.chg_3d, tr.chg_5d, tr.chg_12d,
+                tr.chg_1m, tr.chg_2m, tr.chg_3m, tr.chg_6m, tr.chg_12m,
                 tr.high_52w, tr.pct_from_high, tr.near_52w_high, tr.rank_52w,
                 tr.rsi_14, tr.rsi_1d, tr.rsi_1w, tr.adx_14,
                 tr.macd_line, tr.macd_signal, tr.macd_hist,

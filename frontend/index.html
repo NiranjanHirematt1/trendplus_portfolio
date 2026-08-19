@@ -510,7 +510,13 @@ html.light .scard{border-color:var(--border)}
           <option value="trending_days">Trending Days</option>
           <option value="chg_12d">12d Change%</option>
           <option value="chg_5d">5d Change%</option>
+          <option value="chg_3d">3d Change%</option>
           <option value="chg_1d">1d Change%</option>
+          <option value="chg_1m">1M Change%</option>
+          <option value="chg_2m">2M Change%</option>
+          <option value="chg_3m">3M Change%</option>
+          <option value="chg_6m">6M Change%</option>
+          <option value="chg_12m">12M Change%</option>
           <option value="rsi_14">RSI 14</option>
           <option value="adx_14">ADX 14</option>
           <option value="rank_52w">52W Rank</option>
@@ -528,6 +534,13 @@ html.light .scard{border-color:var(--border)}
           <option value="desc">↓ Desc</option>
           <option value="asc">↑ Asc</option>
         </select>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11.5px;color:var(--t2);font-weight:600;white-space:nowrap">Returns</span>
+          <div class="vtoggle" role="group" aria-label="Returns horizon" style="margin-left:0">
+            <button id="retShort" onclick="setRetMode('short')" aria-pressed="true">Short</button>
+            <button id="retLong"  onclick="setRetMode('long')"  aria-pressed="false">Long</button>
+          </div>
+        </div>
         <div class="vtoggle" role="group" aria-label="Table or watchlist view">
           <button class="active" id="btnTable" aria-pressed="true">▤ Table</button>
           <button id="btnWatch" onclick="toggleWatchMode()" title="Show only your watchlist" aria-label="Show only your watchlist" aria-pressed="false">★ Watchlist</button>
@@ -630,6 +643,7 @@ let VIEW     = 'screener';
 let PAGE     = 1;
 let SORT_BY  = 'momentum_score';
 let SORT_ORD = 'desc';
+let RET_MODE = localStorage.getItem('tp_ret_mode') || 'short';  // 'short' | 'long'
 let GRP_DATA = {};
 let GRP_OPEN = {};
 let srchTimer = null;
@@ -711,6 +725,53 @@ function capBadge(c) {
   return `<span class="cap cap-${k}">${c.replace(' Cap','')}</span>`;
 }
 
+// ── RETURNS COLUMNS (Short / Long screener toggle) ───────────────
+// Longest horizon leftmost & bold, matching the existing convention.
+const RET_COLS_SHORT = [
+  {key:'chg_12d', label:'12d%', bold:true},
+  {key:'chg_5d',  label:'5d%'},
+  {key:'chg_3d',  label:'3d%'},
+  {key:'chg_1d',  label:'1d%'},
+];
+const RET_COLS_LONG = [
+  {key:'chg_12m', label:'12M%', bold:true},
+  {key:'chg_6m',  label:'6M%'},
+  {key:'chg_3m',  label:'3M%'},
+  {key:'chg_2m',  label:'2M%'},
+  {key:'chg_1m',  label:'1M%'},
+];
+function retCols() { return RET_MODE === 'long' ? RET_COLS_LONG : RET_COLS_SHORT; }
+// Sortable header cells (screener)
+function retHeaderCells() {
+  return retCols().map(c =>
+    `<th onclick="sortBy('${c.key}')"${c.bold?' style="font-weight:800"':''}>${c.label} \u21c5</th>`
+  ).join('');
+}
+// Plain (non-sortable) header cells (grouped view)
+function retHeaderCellsPlain() {
+  return retCols().map(c => `<th${c.bold?' style="font-weight:800"':''}>${c.label}</th>`).join('');
+}
+function retBodyCells(r, flashFn) {
+  return retCols().map(c => {
+    // Preserve the tape-flash on the 1d cell. flashFn is renderTable's local
+    // fl(); the grouped view has no flash state and calls this without it.
+    const flash = (flashFn && c.key === 'chg_1d') ? flashFn(r.symbol, 'chg_1d') : '';
+    return `<td class="${pCls(r[c.key])} mono${flash}"${c.bold?' style="font-weight:700"':''}>${fPct(r[c.key])}</td>`;
+  }).join('');
+}
+function setRetMode(m) {
+  RET_MODE = (m === 'long') ? 'long' : 'short';
+  localStorage.setItem('tp_ret_mode', RET_MODE);
+  syncRetToggle();
+  if (VIEW === 'grouped') renderGrouped();
+  else loadScreener();
+}
+function syncRetToggle() {
+  const bs = document.getElementById('retShort'), bl = document.getElementById('retLong');
+  if (bs) { bs.classList.toggle('active', RET_MODE === 'short'); bs.setAttribute('aria-pressed', String(RET_MODE === 'short')); }
+  if (bl) { bl.classList.toggle('active', RET_MODE === 'long');  bl.setAttribute('aria-pressed', String(RET_MODE === 'long')); }
+}
+
 function toast(msg, ms = 2400) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
@@ -756,9 +817,15 @@ function onSortChange() {
 }
 
 function sortBy(col) {
-  const validCols = ['momentum_score','rs_score','trending_days','chg_12d','chg_5d',
-    'chg_1d','rsi_14','rsi_1d','adx_14','rank_52w','macd_hist','weighted_rpi',
-    'rpi_2w','rpi_3m','rpi_6m','total_trades','close_price','ema_signal'];
+  // Keep in sync with VALID_SORT in backend/app/api/trend.py
+  const validCols = ['momentum_score','rs_score','trending_days',
+    'chg_12d','chg_5d','chg_3d','chg_1d',
+    'chg_1m','chg_2m','chg_3m','chg_6m','chg_12m',
+    'rsi_14','rsi_1d','rsi_1w','adx_14','rank_52w','pct_from_high',
+    'macd_hist','macd_line','weighted_rpi',
+    'rpi_2w','rpi_3m','rpi_6m','rpi_6m_sma2w',
+    'ema_9','ema_21','ema_50','ema_200','ema_signal',
+    'total_trades','volume','close_price'];
   if (!validCols.includes(col)) return;
   SORT_ORD = SORT_BY === col ? (SORT_ORD === 'desc' ? 'asc' : 'desc') : 'desc';
   SORT_BY  = col;
@@ -938,9 +1005,7 @@ function renderTable(rows) {
     <th onclick="sortBy('weighted_rpi')" style="color:var(--t1)">wRPI ⇅</th>
     <th onclick="sortBy('momentum_score')">Mom ⇅</th>
     <th onclick="sortBy('close_price')">Price ⇅</th>
-    <th onclick="sortBy('chg_12d')">12d% ⇅</th>
-    <th onclick="sortBy('chg_5d')">5d% ⇅</th>
-    <th onclick="sortBy('chg_1d')">1d% ⇅</th>
+    ${retHeaderCells()}
     <th class="mat-th" style="border-left:2px solid var(--border2)">D12</th>
     <th class="mat-th">D11</th><th class="mat-th">D10</th><th class="mat-th">D9</th>
     <th class="mat-th">D8</th><th class="mat-th">D7</th><th class="mat-th">D6</th>
@@ -964,9 +1029,7 @@ function renderTable(rows) {
       <td class="mono" style="color:var(--t1);font-weight:700;">${f1(r.weighted_rpi)}</td>
       <td class="${fl(r.symbol,'momentum_score').trim()}">${mbar(r.momentum_score)}</td>
       <td class="mono${fl(r.symbol,'close_price')}">${inr(r.close_price)}</td>
-      <td class="${pCls(r.chg_12d)} mono" style="font-weight:600;">${fPct(r.chg_12d)}</td>
-      <td class="${pCls(r.chg_5d)} mono">${fPct(r.chg_5d)}</td>
-      <td class="${pCls(r.chg_1d)} mono${fl(r.symbol,'chg_1d')}">${fPct(r.chg_1d)}</td>
+      ${retBodyCells(r, fl)}
       ${matCells(r.pct_matrix, r.ema_50, r.ema_200)}
     </tr>`).join('');
   return `<div class="twrap"><table>${hdr}<tbody>${body}</tbody></table></div>`;
@@ -1243,7 +1306,7 @@ function renderGrouped() {
     const col = avgMom>=70?'#10b981':avgMom>=40?'#f0a92e':'#f04438';
     const sid = encodeURIComponent(s);
     const tbl = `<div class="twrap"><table>
-      <thead><tr><th>Symbol</th><th>Company</th><th>Trend</th><th>12d%</th><th>5d%</th><th>1d%</th><th>EMA</th><th>Mom</th><th>Price</th>
+      <thead><tr><th>Symbol</th><th>Company</th><th>Trend</th>${retHeaderCellsPlain()}<th>EMA</th><th>Mom</th><th>Price</th>
       <th class="mat-th" style="border-left:2px solid var(--border2)">D12</th>
       <th class="mat-th">D11</th><th class="mat-th">D10</th><th class="mat-th">D9</th>
       <th class="mat-th">D8</th><th class="mat-th">D7</th><th class="mat-th">D6</th>
@@ -1255,9 +1318,7 @@ function renderGrouped() {
           <td><span class="sym-cell">${r.symbol}</span> ${capBadge(r.cap_category)}</td>
           <td class="name-cell">${r.company_name||''}</td>
           <td>${tpill(r.trending_days)}</td>
-          <td class="${pCls(r.chg_12d)} mono" style="font-weight:600;">${fPct(r.chg_12d)}</td>
-          <td class="${pCls(r.chg_5d)} mono">${fPct(r.chg_5d)}</td>
-          <td class="${pCls(r.chg_1d)} mono">${fPct(r.chg_1d)}</td>
+          ${retBodyCells(r)}
           <td>${emaBadge(r.ema_signal)}</td>
           <td>${mbar(r.momentum_score)}</td>
           <td class="mono">${inr(r.close_price)}</td>
@@ -1596,6 +1657,7 @@ document.addEventListener('keydown', e => {
 // ── INIT ─────────────────────────────────────────────────────────
 if (localStorage.getItem('tp_sidebar_hidden') === '1') document.querySelector('.main').classList.add('sb-hidden');
 (async () => {
+  syncRetToggle();
   await updateAuthUI();
   loadSectorList();
   await loadWatchlistSet();

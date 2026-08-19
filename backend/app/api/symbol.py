@@ -29,7 +29,8 @@ async def get_symbol(
         latest = await conn.fetchrow(
             """select
                 trade_date, trending_days,
-                chg_1d, chg_5d, chg_12d,
+                chg_1d, chg_3d, chg_5d, chg_12d,
+                chg_1m, chg_2m, chg_3m, chg_6m, chg_12m,
                 high_52w, pct_from_high, near_52w_high, rank_52w,
                 rsi_14, adx_14,
                 macd_line, macd_signal, macd_hist,
@@ -51,7 +52,8 @@ async def get_symbol(
         history = await conn.fetch(
             """select
                 trade_date, trending_days,
-                chg_1d, chg_5d, chg_12d,
+                chg_1d, chg_3d, chg_5d, chg_12d,
+                chg_1m, chg_2m, chg_3m, chg_6m, chg_12m,
                 rsi_14, adx_14,
                 macd_line, macd_signal, macd_hist,
                 ema_50, ema_200, ema_signal,
@@ -129,7 +131,8 @@ async def get_symbol_metrics(
         rows = await conn.fetch(
             """select
                 trade_date, trending_days,
-                chg_1d, chg_5d, chg_12d,
+                chg_1d, chg_3d, chg_5d, chg_12d,
+                chg_1m, chg_2m, chg_3m, chg_6m, chg_12m,
                 rsi_14, adx_14,
                 macd_line, macd_signal, macd_hist,
                 ema_50, ema_200, ema_signal,

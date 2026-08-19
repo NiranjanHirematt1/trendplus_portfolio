@@ -51,10 +51,16 @@ create table if not exists trend_results (
     -- JSONB maps: {"2026-02-25": 1.23, ...} daily % change per day
     pct_matrix      jsonb       not null default '{}',
 
-    -- ── Period returns ──────────────────────────────────────────────
+    -- ── Period returns (all in TRADING SESSIONS) ────────────────────
     chg_1d          numeric(8,2),   -- today vs yesterday
-    chg_5d          numeric(8,2),   -- 5 trading day return
+    chg_3d          numeric(8,2),   -- 3  trading day return
+    chg_5d          numeric(8,2),   -- 5d label / 6-session legacy offset
     chg_12d         numeric(8,2),   -- 12 trading day return
+    chg_1m          numeric(8,2),   -- 21 sessions  (~1 month)
+    chg_2m          numeric(8,2),   -- 42 sessions  (~2 months)
+    chg_3m          numeric(8,2),   -- 63 sessions  (~3 months)
+    chg_6m          numeric(8,2),   -- 126 sessions (~6 months)
+    chg_12m         numeric(8,2),   -- 252 sessions (~12 months)
 
     -- ── 52-Week High ────────────────────────────────────────────────
     high_52w        numeric(12,2),  -- highest close in rolling 252 days

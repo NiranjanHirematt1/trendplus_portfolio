@@ -69,7 +69,9 @@ async def get_superstrength(
                 s.symbol, s.company_name, s.sector, s.cap_category, s.isin,
                 tr.close_price      AS latest_price,
                 tr.high_52w, tr.pct_from_high, tr.near_52w_high, tr.rank_52w,
-                tr.rsi_14, tr.adx_14, tr.chg_1d, tr.chg_12d,
+                tr.rsi_14, tr.adx_14,
+                tr.chg_1d, tr.chg_3d, tr.chg_5d, tr.chg_12d,
+                tr.chg_1m, tr.chg_2m, tr.chg_3m, tr.chg_6m, tr.chg_12m,
                 tr.ema_50, tr.ema_200, tr.ema_signal,
                 tr.momentum_score, tr.rs_score,
                 -- New columns (NULL if migration not run yet)
@@ -121,7 +123,7 @@ async def download_excel(
             """
             SELECT
                 s.symbol, s.company_name, s.isin, s.sector, s.cap_category,
-                tr.trending_days, tr.chg_12d, tr.chg_5d, tr.chg_1d,
+                tr.trending_days, tr.chg_12d, tr.chg_5d, tr.chg_3d, tr.chg_1d,
                 tr.rsi_14, tr.adx_14, tr.momentum_score,
                 tr.ema_200, tr.close_price,
                 tr.bool_matrix, tr.pct_matrix
@@ -201,7 +203,7 @@ def _build_excel(rows, trade_date: datetime.date) -> bytes:
     ws1 = wb.active
     ws1.title = "Trend (True-False)"
     cols1 = (["Company Name","Symbol","ISIN","Sector","Cap",
-               "Trend","12d%","5d%","1d%"] + date_keys + ["ADX","RSI"])
+               "Trend","12d%","5d%","3d%","1d%"] + date_keys + ["ADX","RSI"])
     _hdr(ws1, cols1)
 
     for ri, r in enumerate(rows, 2):
@@ -213,7 +215,7 @@ def _build_excel(rows, trade_date: datetime.date) -> bytes:
             r["company_name"] or r["symbol"], r["symbol"],
             r["isin"] or "", r["sector"] or "", r["cap_category"] or "",
             r["trending_days"],
-            r["chg_12d"], r["chg_5d"], r["chg_1d"],
+            r["chg_12d"], r["chg_5d"], r["chg_3d"], r["chg_1d"],
         ] + [bm.get(k) for k in date_keys] + [r["adx_14"], r["rsi_14"]]
 
         for ci, (col, val) in enumerate(zip(cols1, vals), 1):
@@ -267,7 +269,7 @@ def _build_excel(rows, trade_date: datetime.date) -> bytes:
             r["company_name"] or r["symbol"], r["symbol"],
             r["isin"] or "", r["sector"] or "", r["cap_category"] or "",
             r["trending_days"],
-            r["chg_12d"], r["chg_5d"], r["chg_1d"],
+            r["chg_12d"], r["chg_5d"], r["chg_3d"], r["chg_1d"],
         ] + [pm.get(k) for k in date_keys] + [r["adx_14"], r["rsi_14"]]
 
         for ci, (col, val) in enumerate(zip(cols1, vals), 1):

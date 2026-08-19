@@ -59,6 +59,7 @@ from analytics_engine import (
     get_matrix_dates,
     compute_matrices,
     compute_period_changes,
+    compute_all_period_changes,
     fill_flexible_period_changes,
     compute_52w_high,
     compute_rs_score,
@@ -94,7 +95,9 @@ MACD_SIGNAL_P = 9
 # This prevents indicator drift on very long histories where early data
 # has different volatility characteristics.
 MAX_DATES  = 525   # above this → restrict
-YEAR_DAYS  = 262   # ~1 trading year + buffer for 52W computations
+# 252-session (12M) return needs 253 columns; keep a healthy buffer so a
+# holiday-heavy stretch never starves chg_12m.
+YEAR_DAYS  = 300   # ~1 trading year + buffer for 52W + 12M returns
 
 _BATCH = 500
 
@@ -149,7 +152,7 @@ def compute_macd(close_piv: pd.DataFrame) -> pd.DataFrame:
 # ════════════════════════════════════════════════════════════════════
 #  BHAV CLEANUP — keep only latest 255 trading dates
 # ════════════════════════════════════════════════════════════════════
-MAX_BHAV_DATES = 255  # 1 trading year ≈ 252, buffer of 3
+MAX_BHAV_DATES = 300  # 12M return needs 253 sessions; keep buffer for holidays
 
 async def cleanup_old_bhav_dates(conn):
     """
@@ -566,8 +569,16 @@ async def compute_and_upsert_today(
     matrix_dates = get_matrix_dates(close_piv, LOOKBACK_DAYS)
     trending, bool_matrix, pct_matrix = compute_matrices(close_piv, matrix_dates)
     chg_12d, chg_5d = compute_period_changes(close_piv, matrix_dates)
-    # Flexible fallback: symbols with < N days history use earliest-in-window base
-    chg_12d, chg_5d = fill_flexible_period_changes(close_piv, chg_12d, chg_5d)
+    # New multi-horizon returns (chg_3d, chg_1m, chg_2m, chg_3m, chg_6m, chg_12m)
+    period_changes  = compute_all_period_changes(close_piv)
+    # Flexible fallback: short horizons with < N days history use earliest-in-window base
+    _changes = fill_flexible_period_changes(close_piv, {
+        "chg_5d":  chg_5d,
+        "chg_12d": chg_12d,
+        "chg_3d":  period_changes["chg_3d"],
+    })
+    chg_5d, chg_12d = _changes["chg_5d"], _changes["chg_12d"]
+    period_changes["chg_3d"] = _changes["chg_3d"]
 
     high_52w, pct_from_high, near_high, rank_52w = compute_52w_high(close_piv, W52_DAYS)
     rs_score     = compute_rs_score(close_piv)
@@ -594,7 +605,7 @@ async def compute_and_upsert_today(
     # ── Assemble result ───────────────────────────────────────────────
     result = (
         pd.DataFrame({"Trending Days": trending})
-        .join(chg_12d).join(chg_5d)
+        .join(chg_12d).join(chg_5d).join(period_changes)
         .join(adx).join(rsi).join(rsi_short)
         .join(high_52w).join(pct_from_high)
         .join(near_high).join(rank_52w)
@@ -741,6 +752,12 @@ async def compute_and_upsert_today(
                 _sf(row.get("Close")),                                  # $35
                 vol,                                                    # $36
                 trades,                                                 # $37
+                _sf(row.get("chg_3d")),                                 # $38
+                _sf(row.get("chg_1m")),                                 # $39
+                _sf(row.get("chg_2m")),                                 # $40
+                _sf(row.get("chg_3m")),                                 # $41
+                _sf(row.get("chg_6m")),                                 # $42
+                _sf(row.get("chg_12m")),                                # $43
             ))
 
         for start in range(0, len(trend_rows), _BATCH):
@@ -760,7 +777,8 @@ async def compute_and_upsert_today(
                     momentum_score,
                     bool_matrix, pct_matrix,
                     open_price, high_price, low_price, close_price,
-                    volume, total_trades
+                    volume, total_trades,
+                    chg_3d, chg_1m, chg_2m, chg_3m, chg_6m, chg_12m
                 ) VALUES (
                     $1,$2,$3,
                     $4,$5,$6,$7,$8,$9,$10,
@@ -770,7 +788,8 @@ async def compute_and_upsert_today(
                     $23,$24,$25,$26,$27,$28,
                     $29,
                     $30::jsonb,$31::jsonb,
-                    $32,$33,$34,$35,$36,$37
+                    $32,$33,$34,$35,$36,$37,
+                    $38,$39,$40,$41,$42,$43
                 )
                 ON CONFLICT (trade_date, symbol) DO UPDATE SET
                     trending_days  = excluded.trending_days,
@@ -807,7 +826,13 @@ async def compute_and_upsert_today(
                     low_price      = excluded.low_price,
                     close_price    = excluded.close_price,
                     volume         = excluded.volume,
-                    total_trades   = excluded.total_trades
+                    total_trades   = excluded.total_trades,
+                    chg_3d         = excluded.chg_3d,
+                    chg_1m         = excluded.chg_1m,
+                    chg_2m         = excluded.chg_2m,
+                    chg_3m         = excluded.chg_3m,
+                    chg_6m         = excluded.chg_6m,
+                    chg_12m        = excluded.chg_12m
                 """,
                 trend_rows[start : start + _BATCH],
             )

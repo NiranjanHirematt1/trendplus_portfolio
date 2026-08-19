@@ -285,6 +285,37 @@ window.TPDP = (function () {
     const k = c === 'Large Cap' ? 'L' : c === 'Mid Cap' ? 'M' : 'S';
     return `<span class="cap cap-${k}">${c.replace(' Cap', '')}</span>`;
   }
+  // Nine-horizon returns ladder — diverging bars on a shared zero line, so the
+  // SHAPE of the move across horizons is readable, not just nine numbers.
+  const RET_LADDER = [
+    ['1D', 'chg_1d'], ['3D', 'chg_3d'], ['5D', 'chg_5d'], ['12D', 'chg_12d'],
+    ['1M', 'chg_1m'], ['2M', 'chg_2m'], ['3M', 'chg_3m'], ['6M', 'chg_6m'],
+    ['12M', 'chg_12m'],
+  ];
+  function returnsLadder(lat) {
+    lat = lat || {};
+    const rows = RET_LADDER.map(([label, key]) => {
+      const raw = lat[key];
+      return { label, v: (raw == null || isNaN(raw)) ? null : Number(raw) };
+    });
+    // Scale every bar to the largest absolute move in the set.
+    const maxAbs = Math.max(1e-9, ...rows.map(r => r.v == null ? 0 : Math.abs(r.v)));
+    return `<div class="ret-ladder">` + rows.map(r => {
+      if (r.v == null) {
+        return `<div class="ret-row"><div class="ret-lbl">${r.label}</div>`
+             + `<div class="ret-bar"><span class="ret-zero"></span></div>`
+             + `<div class="ret-val neu">\u2014</div></div>`;
+      }
+      const w   = Math.min(50, Math.abs(r.v) / maxAbs * 50);   // % of half-width
+      const bar = r.v >= 0
+        ? `<span class="ret-fill pos" style="left:50%;width:${w}%"></span>`
+        : `<span class="ret-fill neg" style="right:50%;width:${w}%"></span>`;
+      return `<div class="ret-row"><div class="ret-lbl">${r.label}</div>`
+           + `<div class="ret-bar"><span class="ret-zero"></span>${bar}</div>`
+           + `<div class="ret-val ${pCls(r.v)}">${fPct(r.v)}</div></div>`;
+    }).join('') + `</div>`;
+  }
+
   function mboxes(pairs) {
     return `<div class="metric-grid">${pairs.map(([l, v, span2]) =>
       `<div class="mbox${span2 ? ' span2' : ''}"><div class="mbox-l">${l}</div><div class="mbox-v">${v}</div></div>`).join('')}</div>`;
@@ -324,6 +355,15 @@ window.TPDP = (function () {
 .dp-body{padding:14px 18px;flex:1}
 .dp-sec-ttl{font-size:10.5px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:1px;margin:16px 0 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .dp-sec-ttl:first-child{margin-top:0}
+.dp .ret-ladder{display:flex;flex-direction:column;gap:5px}
+.dp .ret-row{display:grid;grid-template-columns:34px 1fr 66px;align-items:center;gap:9px}
+.dp .ret-lbl{font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px}
+.dp .ret-bar{position:relative;height:13px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.dp .ret-zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border2)}
+.dp .ret-fill{position:absolute;top:1px;bottom:1px;border-radius:2px}
+.dp .ret-fill.pos{background:var(--green)}
+.dp .ret-fill.neg{background:var(--red)}
+.dp .ret-val{font-family:var(--font-mono);font-size:12px;font-weight:700;text-align:right}
 .dp .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .dp .mbox{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 11px}
 .dp .mbox.span2{grid-column:span 2}
@@ -529,6 +569,8 @@ window.TPDP = (function () {
         `<button data-tf="${k}" class="${k === tf ? 'active' : ''}">${k}</button>`).join('')}</span></div>
       <canvas id="dpChart" style="width:100%;height:150px"></canvas>
       <div id="dpChartNote" style="font-size:11.5px;color:var(--t2);margin-top:6px"></div>
+      <div class="dp-sec-ttl">Returns</div>
+      ${returnsLadder(lat)}
       <div class="dp-sec-ttl">Key metrics</div>
       ${mboxes([
         ['Trending days', tpill(lat.trending_days)],
@@ -537,7 +579,7 @@ window.TPDP = (function () {
         ['Weighted RPI', `<span style="color:#c084fc">${f1(lat.weighted_rpi)}</span>`],
         ['RSI 14', `<span class="${Number(lat.rsi_14) > 60 ? 'pos' : Number(lat.rsi_14) < 40 ? 'neg' : ''}">${f1(lat.rsi_14)}</span>`],
         ['ADX 14', f1(lat.adx_14)],
-        ['12d change', `<span class="${pCls(lat.chg_12d)}">${fPct(lat.chg_12d)}</span>`],
+        ['52W rank', f1(lat.rank_52w)],
         ['52W high dist.', `<span class="${pCls(lat.pct_from_high)}">${fPct(lat.pct_from_high)}</span>`],
       ])}`;
   }
