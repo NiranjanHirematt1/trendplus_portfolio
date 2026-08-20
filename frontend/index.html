@@ -827,6 +827,17 @@ async function apiFetch(path, options = {}) {
 
 function loading(id) { document.getElementById(id).innerHTML = '<div class="ld"><div class="spin"></div> Loading…</div>'; }
 
+// Friendly, retryable error state. `retryExpr` is an inline call string (e.g. 'loadScreener()')
+// re-run when the user taps Retry; omit it for a plain message. `detail` shows the raw error small.
+function errHtml(msg, retryExpr, detail) {
+  return `<div class="empty">
+    <div class="empty-icon">⚠</div>
+    <div style="font-weight:600;color:var(--t1);max-width:340px;text-align:center">${msg}</div>
+    ${detail ? `<div style="font-size:11px;color:var(--t3);max-width:340px;text-align:center;word-break:break-word">${escHtml(detail)}</div>` : ''}
+    ${retryExpr ? `<button class="pb" onclick="${retryExpr}" style="margin-top:6px">↻ Retry</button>` : ''}
+  </div>`;
+}
+
 function strHash(s) {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xfffffff; return h;
@@ -1068,7 +1079,7 @@ async function loadScreener() {
         tr.addEventListener('click', () => openDP(tr.dataset.sym));
       });
     } catch (e) {
-      document.getElementById('tableWrap').innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+      document.getElementById('tableWrap').innerHTML = errHtml("Couldn't load stocks — check your connection and try again.", 'loadScreener()', e.message);
     }
     return;
   }
@@ -1106,7 +1117,7 @@ async function loadScreener() {
     });
     renderPagination(d.page, d.pages, d.total);
   } catch (e) {
-    document.getElementById('tableWrap').innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+    document.getElementById('tableWrap').innerHTML = errHtml("Couldn't load stocks — check your connection and try again.", 'loadScreener()', e.message);
   }
 }
 
@@ -1255,7 +1266,7 @@ async function loadSectors() {
     renderSectorDashboard(d.date || '');
     if(SELECTED_SECTOR) loadSectorDetail(SELECTED_SECTOR);
   } catch(e){
-    document.getElementById('secGrid').innerHTML=`<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+    document.getElementById('secGrid').innerHTML = errHtml("Couldn't load sectors — check your connection and try again.", 'loadSectors()', e.message);
   }
 }
 
@@ -1374,7 +1385,7 @@ async function loadSectorDetail(name) {
     const d = await apiFetch('/api/trend?' + qs.toString());
     renderSectorStocks(d.data || [], d.total || 0);
   } catch(e) {
-    panel.innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+    panel.innerHTML = errHtml("Couldn't load this sector's stocks — try again.", `loadSectorDetail('${String(name).replace(/['\\]/g, '\\$&')}')`, e.message);
   }
 }
 
@@ -1418,7 +1429,7 @@ async function loadGrouped() {
     d.data.forEach(r => { const s = normSector(r.sector)||'(No Sector)'; (GRP_DATA[s]=GRP_DATA[s]||[]).push(r); });
     document.getElementById('grpCount').textContent = d.total.toLocaleString() + ' stocks';
     renderGrouped();
-  } catch(e) { document.getElementById('grpWrap').innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`; }
+  } catch(e) { document.getElementById('grpWrap').innerHTML = errHtml("Couldn't load stocks by sector — check your connection and try again.", 'loadGrouped()', e.message); }
 }
 
 function renderGrouped() {
@@ -1578,7 +1589,7 @@ async function loadSuperStrength() {
       tr.addEventListener('click', () => openDP(tr.dataset.sym));
     });
   } catch(e) {
-    document.getElementById('ssGrid').innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+    document.getElementById('ssGrid').innerHTML = errHtml("Couldn't load Super Strength — check your connection and try again.", 'loadSuperStrength()', e.message);
   }
 }
 
@@ -1665,7 +1676,7 @@ async function loadCupHandleScreen() {
       tr.addEventListener('click', () => openDP(tr.dataset.sym)));
   } catch (e) {
     document.getElementById('chGrid').innerHTML =
-      `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+      errHtml("Couldn't load Cup & Handle patterns — check your connection and try again.", 'loadCupHandleScreen()', e.message);
   }
 }
 

@@ -760,6 +760,14 @@ function toast(msg, ms = 3500) {
   setTimeout(() => el.classList.remove('show'), ms);
 }
 function cleanErr(msg){ try{ const j = JSON.parse(msg.replace(/^\d+:\s*/,'')); return j.detail || msg; }catch(_){ return msg; } }
+// Friendly, retryable error block. `retryExpr` is an inline call string (e.g. 'loadAlerts()').
+function errHtml(msg, retryExpr, detail){
+  return `<div class="pnote" style="display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:12px">
+    <span>${msg}</span>
+    ${detail ? `<span style="color:var(--t3);font-size:11px;word-break:break-word">${esc(detail)}</span>` : ''}
+    ${retryExpr ? `<button class="tb-btn" onclick="${retryExpr}">↻ Retry</button>` : ''}
+  </div>`;
+}
 
 async function apiFetch(path, options = {}) {
   const headers = Object.assign({}, options.headers || {});
@@ -1001,7 +1009,7 @@ async function loadAlerts() {
     ALERTS_DATA = d.data || [];
     renderAlerts(d.counts || {});
   } catch (e) {
-    document.getElementById('alertsRail').innerHTML = `<div class="pnote">Couldn't load alerts. Check that the data service is running, then hit ↻ to retry.<br><span style="color:var(--t3);font-size:11px">${esc(cleanErr(e.message))}</span></div>`;
+    document.getElementById('alertsRail').innerHTML = errHtml("Couldn't load alerts — check your connection and try again.", 'loadAlerts()', cleanErr(e.message));
   }
 }
 function toggleAlertFilter(sev) {
