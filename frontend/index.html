@@ -158,7 +158,10 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 /* ── TABLE ──────────────────────────── */
 .twrap{overflow-x:auto;width:100%;position:relative}
 table{border-collapse:collapse;font-size:12.5px;width:100%;}
-thead th{background:var(--bg2);color:var(--t2);font-weight:600;padding:10px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border2);position:sticky;top:var(--toolbar-h,53px);z-index:10;cursor:pointer;user-select:none;font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px;}
+thead th{background:var(--bg2);color:var(--t2);font-weight:600;padding:10px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10;cursor:pointer;user-select:none;font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px;}
+/* Only the main Screener table offsets its sticky header below the sticky toolbar.
+   Other tables (sectors, grouped, super strength, cup & handle) keep the original top:0. */
+.tw-main thead th{top:var(--toolbar-h,53px)}
 thead th:first-child{text-align:left;position:sticky;left:0;z-index:20;background:var(--bg2);min-width:130px}
 thead th:nth-child(2){text-align:left;position:sticky;left:130px;z-index:20;background:var(--bg2);box-shadow:4px 0 12px rgba(0,0,0,.2);min-width:180px}
 tbody td:first-child{position:sticky;left:0;z-index:5;background:var(--bg1);min-width:130px}
@@ -1168,7 +1171,8 @@ function renderTable(rows) {
       ${retBodyCells(r, fl)}
       ${matCells(r.pct_matrix, r.ema_50, r.ema_200)}
     </tr>`).join('');
-  return `<div class="twrap"><table>${hdr}<tbody>${body}</tbody></table></div>`;
+  // tw-main: only the Screener table docks its header below the sticky toolbar.
+  return `<div class="twrap tw-main"><table>${hdr}<tbody>${body}</tbody></table></div>`;
 }
 
 function renderPagination(page, pages, total) {
