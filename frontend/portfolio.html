@@ -140,6 +140,21 @@ a{color:inherit}
 .onb-step{font-size:11px;color:var(--t3);margin-right:auto;font-family:var(--font-mono)}
 .onb-skip{font-size:11px;color:var(--t3);cursor:pointer;background:none;border:none}
 .onb-skip:hover{color:var(--t1)}
+/* "What to do today" summary card */
+.today-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--border);cursor:pointer;transition:background var(--tr)}
+.today-item:hover{background:var(--bg2)}
+.today-tag{font-family:var(--font-mono);font-size:10px;font-weight:800;letter-spacing:.5px;padding:3px 7px;border-radius:4px;flex-shrink:0}
+.tag-EXIT{background:var(--red-bg);color:var(--red)}
+.tag-TRIM{background:var(--amber-bg);color:var(--amber)}
+.tag-ALERT{background:var(--bg3);color:var(--t1)}
+.today-sym{font-family:var(--font-mono);font-weight:700;color:var(--t0);min-width:84px;flex-shrink:0}
+.today-item:hover .today-sym{color:var(--amber)}
+.today-reason{font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.today-calm{padding:14px 12px;font-size:12.5px;color:var(--t2)}
+.today-calm b{color:var(--green);font-weight:600}
+/* Row highlight when jumped-to from the today card */
+@keyframes tp-rowflash{0%,45%{box-shadow:inset 0 0 0 999px var(--amber-bg)}100%{box-shadow:inset 0 0 0 999px transparent}}
+tr.row-flash td{animation:tp-rowflash 1.6s ease-out}
 .grid-main{display:grid;grid-template-columns:1fr 340px;gap:12px;align-items:start}
 @media(max-width:1100px){.grid-main{grid-template-columns:1fr}}
 @media(min-width:1600px){.grid-main{grid-template-columns:1fr 400px;gap:16px}.grid-2{gap:16px}}
@@ -476,6 +491,15 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
       <div class="pf-field"><label>Confirm new password</label><input class="finput" id="cpConfirm" type="password"/></div>
       <button class="btn btn-primary" onclick="changePassword()" style="align-self:end">Update</button>
     </div>
+  </section>
+
+  <!-- What to do today -->
+  <section class="panel" id="todayPanel">
+    <div class="phead">
+      <span class="ptitle">What to do today</span>
+      <span class="pnote" style="padding:0" id="todaySub"></span>
+    </div>
+    <div id="todayBody"></div>
   </section>
 
   <!-- Morning brief -->
@@ -908,6 +932,7 @@ async function loadAll() {
     renderHeatmap();
     renderRiskPanel(summary);
     renderDecision();
+    renderTodaySummary();
     renderHistoryTable(HOLDINGS.filter(h => h.status === 'SOLD'));
     renderMissingDates(HOLDINGS.filter(h => h.requires_confirmation && (h.status === 'ACTIVE' || h.status === 'PARTIAL')));
 
@@ -1220,6 +1245,7 @@ async function loadAlerts() {
     const d = await apiFetch(`/api/portfolio/alerts?risk_limit=${riskLimit()}&target_alloc=${targetAlloc()}&min_alloc=${minAlloc()}`);
     ALERTS_DATA = d.data || [];
     renderAlerts(d.counts || {});
+    renderTodaySummary();   // alert-derived urgents can now be included
   } catch (e) {
     document.getElementById('alertsRail').innerHTML = errHtml("Couldn't load alerts — check your connection and try again.", 'loadAlerts()', cleanErr(e.message));
   }
@@ -1964,6 +1990,51 @@ function renderDecision() {
       <span style="margin-left:10px;color:var(--t3)">Optional — the Verdicts tab is deterministic and always available.</span></div>`;
   }
 }
+// ── "What to do today" summary card ───────────────────────────────
+const TODAY_SEV_LABEL = { critical: 'CRIT', high: 'HIGH' };
+function renderTodaySummary() {
+  const sub = document.getElementById('todaySub');
+  const body = document.getElementById('todayBody');
+  if (!sub || !body) return;
+  const reasonOf = h => (h.verdict_reasons && h.verdict_reasons[0] && h.verdict_reasons[0].detail) || '';
+  const items = [];
+  const seen = new Set();
+  // Most urgent first: EXIT, then TRIM …
+  OPEN.filter(h => h.verdict === 'EXIT').forEach(h => { items.push({ kind: 'EXIT', label: 'EXIT', sym: h.symbol, reason: reasonOf(h) || 'Exit signal fired' }); seen.add(h.symbol); });
+  OPEN.filter(h => h.verdict === 'TRIM').forEach(h => { items.push({ kind: 'TRIM', label: 'TRIM', sym: h.symbol, reason: reasonOf(h) || 'Trim signal fired' }); seen.add(h.symbol); });
+  // … then the highest-severity alerts for positions not already surfaced.
+  ALERTS_DATA
+    .filter(a => (a.severity === 'critical' || a.severity === 'high') && a.symbol && !seen.has(a.symbol))
+    .forEach(a => { items.push({ kind: 'ALERT', label: TODAY_SEV_LABEL[a.severity] || 'ALERT', sym: a.symbol, reason: [a.title, a.detail].filter(Boolean).join(' — ') }); seen.add(a.symbol); });
+
+  const top = items.slice(0, 3);
+  if (!top.length) {
+    sub.textContent = '';
+    body.innerHTML = '<div class="today-calm"><b>All positions look fine today</b> — no exits or trims flagged, no high-severity alerts.</div>';
+    return;
+  }
+  sub.textContent = `${items.length} position${items.length > 1 ? 's need' : ' needs'} attention`;
+  body.innerHTML = top.map(i => `
+    <div class="today-item" onclick="focusHoldingRow('${esc(i.sym)}')" title="Jump to ${esc(i.sym)} in the table">
+      <span class="today-tag tag-${i.kind}">${i.label}</span>
+      <span class="today-sym">${esc(i.sym)}</span>
+      <span class="today-reason">${esc(i.reason)}</span>
+    </div>`).join('');
+}
+// Jump to a holding's row in the table and pulse it. Clears filters so the row is present.
+function focusHoldingRow(sym) {
+  SEARCH = ''; SECTOR_FILTER = null;
+  const hs = document.getElementById('holdingsSearch'); if (hs) hs.value = '';
+  const chip = document.getElementById('sectorFilterChip'); if (chip) chip.innerHTML = '';
+  renderHoldingsTable();
+  const tr = document.querySelector(`#hTbody tr[data-sym="${sym}"]`);
+  if (!tr) { TPDP.open(sym); return; }        // fallback: open the detail panel
+  ROW_FOCUS = Number(tr.dataset.idx);
+  tr.scrollIntoView({ block: 'center' });
+  tr.classList.remove('row-flash'); void tr.offsetWidth; tr.classList.add('row-flash');
+  setTimeout(() => tr.classList.remove('row-flash'), 1700);
+}
+
 async function runAiAdvisor() {
   const panel = document.getElementById('aiPanel');
   panel.innerHTML = 'Asking Gemini about your open holdings…';
