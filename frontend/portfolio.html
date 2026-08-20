@@ -129,6 +129,17 @@ a{color:inherit}
 .demo-msg{font-size:12.5px;color:var(--t1)}
 .demo-cta{margin-left:auto;font-size:12px;padding:6px 12px}
 @media(max-width:680px){.demo-cta{margin-left:0;width:100%}}
+/* First-run onboarding coach marks */
+.onb-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:900}
+.onb-ring{position:fixed;z-index:901;border:2px solid var(--amber);border-radius:6px;box-shadow:0 0 0 4px var(--amber-bg);pointer-events:none;transition:all .2s ease}
+.onb-pop{position:fixed;z-index:902;max-width:280px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);box-shadow:var(--shadow-md);padding:14px}
+.onb-pop h4{font-size:13px;color:var(--t0);margin-bottom:6px}
+.onb-pop p{font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:10px}
+.onb-pop b{color:var(--t1)}
+.onb-actions{display:flex;align-items:center;gap:8px}
+.onb-step{font-size:11px;color:var(--t3);margin-right:auto;font-family:var(--font-mono)}
+.onb-skip{font-size:11px;color:var(--t3);cursor:pointer;background:none;border:none}
+.onb-skip:hover{color:var(--t1)}
 .grid-main{display:grid;grid-template-columns:1fr 340px;gap:12px;align-items:start}
 @media(max-width:1100px){.grid-main{grid-template-columns:1fr}}
 @media(min-width:1600px){.grid-main{grid-template-columns:1fr 400px;gap:16px}.grid-2{gap:16px}}
@@ -526,7 +537,7 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
           <option value="compact">Compact</option>
           <option value="spacious">Spacious</option>
         </select>
-        <button class="tb-btn" onclick="toggleColMenu(event)" aria-label="Choose columns to display">⚙ Columns</button>
+        <button class="tb-btn" id="colMenuBtn" onclick="toggleColMenu(event)" aria-label="Choose columns to display">⚙ Columns</button>
         <button class="tb-btn" onclick="openAddModal()" aria-label="Add holdings">＋ Add</button>
         <button class="tb-btn" onclick="loadAll()" title="Refresh all data" aria-label="Refresh all data">↻</button>
         <button class="tb-btn" onclick="showShortcutsHelp()" aria-label="Keyboard shortcuts" title="Keyboard shortcuts — j/k move · Enter open · b buy · s sell · x select · / search · Esc close">?</button>
@@ -907,6 +918,7 @@ async function loadAll() {
       ds.classList.add('tp-stagger');
       setTimeout(() => ds.classList.remove('tp-stagger'), 1200);
     }
+    setTimeout(maybeOnboard, 700);   // one-time coach marks, after the entrance settles
 
     // Non-blocking secondary loads
     ALL_HISTORY = []; BENCH = null;   // recompute analytics after any trade
@@ -1033,6 +1045,7 @@ function loadDemo() {
   renderAlerts(counts);
   if (typeof renderTodaySummary === 'function') renderTodaySummary();
   window.scrollTo(0, 0);
+  setTimeout(maybeOnboard, 500);   // same one-time coach marks in demo mode
 }
 function exitDemo() {
   DEMO = false;
@@ -1046,6 +1059,62 @@ function exitDemo() {
 function demoBlock() {
   if (DEMO) { toast('Log in to trade for real.'); return true; }
   return false;
+}
+
+// ── First-run onboarding ──────────────────────────────────────────
+// A short, skippable coach-mark tour shown once (tracked in localStorage)
+// that explains the Verdict + Risk badges and points at the column control.
+const ONBOARD_KEY = 'tp_onboarded_v1';
+const ONB_STEPS = [
+  { sel: 'th[data-key="verdict"]', title: 'Verdict', body: 'A rule-based call on each position — <b>Add More</b>, <b>Hold</b>, <b>Trim</b> or <b>Exit</b> — with the exact rules that fired. Rows sort so the most urgent (Exit) surface first.' },
+  { sel: 'th[data-key="risk_level"]', title: 'Risk', body: 'How risky the position looks right now — <b>Low</b>, <b>Moderate</b>, <b>Elevated</b> or <b>High</b> — from trend, drawdown and volatility.' },
+  { sel: '#colMenuBtn', title: 'Reveal more columns', body: 'Momentum, RS, Score, Days held and Streak are hidden by default. Open <b>⚙ Columns</b> to show them and tailor the table.' },
+];
+let ONB_I = 0;
+function maybeOnboard() {
+  if (localStorage.getItem(ONBOARD_KEY)) return;
+  if (!OPEN.length) return;                 // nothing to point at yet
+  ONB_I = 0; showOnbStep();
+}
+function endOnboarding() {
+  localStorage.setItem(ONBOARD_KEY, '1');
+  document.querySelectorAll('.onb-backdrop,.onb-ring,.onb-pop').forEach(el => el.remove());
+}
+function onbActive() { return !!document.querySelector('.onb-backdrop'); }
+function onbNext() { if (ONB_I < ONB_STEPS.length - 1) { ONB_I++; showOnbStep(); } else endOnboarding(); }
+function showOnbStep() {
+  document.querySelectorAll('.onb-ring,.onb-pop').forEach(el => el.remove());
+  let bd = document.querySelector('.onb-backdrop');
+  if (!bd) { bd = document.createElement('div'); bd.className = 'onb-backdrop'; bd.onclick = endOnboarding; document.body.appendChild(bd); }
+  const step = ONB_STEPS[ONB_I];
+  const tgt = document.querySelector(step.sel);
+  if (!tgt) {   // target not visible (e.g. column hidden) — skip ahead
+    if (ONB_I < ONB_STEPS.length - 1) { ONB_I++; return showOnbStep(); }
+    return endOnboarding();
+  }
+  tgt.scrollIntoView({ block: 'center', inline: 'center' });
+  const r = tgt.getBoundingClientRect();
+  const ring = document.createElement('div');
+  ring.className = 'onb-ring';
+  ring.style.left = (r.left - 4) + 'px'; ring.style.top = (r.top - 4) + 'px';
+  ring.style.width = (r.width + 8) + 'px'; ring.style.height = (r.height + 8) + 'px';
+  document.body.appendChild(ring);
+  const pop = document.createElement('div');
+  pop.className = 'onb-pop';
+  const last = ONB_I === ONB_STEPS.length - 1;
+  pop.innerHTML = `<h4>${step.title}</h4><p>${step.body}</p>
+    <div class="onb-actions">
+      <span class="onb-step">${ONB_I + 1} / ${ONB_STEPS.length}</span>
+      <button class="onb-skip" onclick="endOnboarding()">Skip</button>
+      <button class="btn btn-primary" style="font-size:12px;padding:5px 12px" onclick="onbNext()">${last ? 'Got it' : 'Next'}</button>
+    </div>`;
+  document.body.appendChild(pop);
+  // Position below the target, clamped to the viewport; flip above if it would overflow.
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = Math.min(r.left, window.innerWidth - pw - 12); left = Math.max(12, left);
+  let top = r.bottom + 10;
+  if (top + ph > window.innerHeight - 12) top = r.top - ph - 10;
+  pop.style.left = left + 'px'; pop.style.top = Math.max(12, top) + 'px';
 }
 
 // ── Morning brief ─────────────────────────────────────────────────
@@ -2532,6 +2601,7 @@ document.addEventListener('keydown', e => {
   const tag = document.activeElement && document.activeElement.tagName;
   const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (e.key === 'Escape') {
+    if (onbActive()) { endOnboarding(); return; }
     closeCtxMenu();
     const top = topModal();
     if (top) { const close = MODAL_CLOSERS[top]; if (close) close(); return; }
