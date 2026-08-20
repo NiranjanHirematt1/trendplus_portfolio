@@ -19,21 +19,35 @@
   --font-mono:'JetBrains Mono',monospace; --font:'DM Sans',sans-serif;
   --r:6px; --r2:12px; --tr:150ms ease-in-out;
   --shadow-sm:0 1px 3px rgba(0,0,0,.3);
+  --shadow-md:0 8px 30px rgba(0,0,0,.5);
 }
 html{font-size:13px;background:var(--bg0);color:var(--t0);font-family:var(--font);-webkit-font-smoothing:antialiased}
 body{min-height:100vh}
 button{font-family:var(--font);cursor:pointer;border:none;outline:none}
-input{font-family:var(--font);outline:none;border:none}
+input,select{font-family:var(--font);outline:none;border:none}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:4px}
 
 .topbar{height:52px;background:var(--bg1);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;box-shadow:var(--shadow-sm)}
 .logo{font-family:var(--font-mono);font-weight:700;font-size:15px;letter-spacing:-.5px}
 .logo span{color:var(--t2);font-weight:500;margin-left:8px}
-.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.whoami{font-size:12px;color:var(--t2)}
+.whoami b{color:var(--t0)}
+.role-pill{display:inline-flex;border-radius:999px;padding:2px 8px;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;margin-left:6px}
+.role-superadmin{color:var(--amber);background:var(--amber-bg)}
+.role-support{color:var(--blue);background:var(--blue-bg)}
 
-.wrap{max-width:1200px;margin:0 auto;padding:24px 20px}
+.wrap{max-width:1200px;margin:0 auto;padding:20px}
 .hidden{display:none!important}
+
+/* Tab nav */
+.tab-nav{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:22px;overflow-x:auto}
+.tab-nav button{padding:11px 16px;background:none;color:var(--t2);font-size:13px;font-weight:600;border-bottom:2px solid transparent;white-space:nowrap;transition:var(--tr)}
+.tab-nav button:hover{color:var(--t0)}
+.tab-nav button.active{color:var(--t0);border-bottom-color:var(--blue)}
+.tab-nav .nav-badge{display:inline-flex;align-items:center;justify-content:center;min-width:17px;height:17px;padding:0 5px;margin-left:7px;border-radius:9px;background:var(--amber);color:#0a0e17;font-family:var(--font-mono);font-size:10px;font-weight:700}
+.tab-nav .nav-badge[hidden]{display:none}
 
 /* Login screen */
 .login-wrap{min-height:calc(100vh - 52px);display:flex;align-items:center;justify-content:center}
@@ -41,51 +55,83 @@ input{font-family:var(--font);outline:none;border:none}
 .login-card h1{font-size:16px;margin-bottom:6px}
 .login-card p{color:var(--t2);font-size:12px;margin-bottom:20px}
 
-.finput{background:var(--bg2);border:1px solid var(--border2)!important;border-radius:var(--r);padding:9px 11px;color:var(--t0);font-size:13px;width:100%}
-.finput:focus{border-color:var(--blue)!important}
+.finput,.fselect{background:var(--bg2);border:1px solid var(--border2)!important;border-radius:var(--r);padding:9px 11px;color:var(--t0);font-size:13px;width:100%}
+.finput:focus,.fselect:focus{border-color:var(--blue)!important}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
 .field label{font-size:11px;color:var(--t2);font-weight:700;text-transform:uppercase;letter-spacing:.3px}
 
-.btn{padding:9px 16px;border-radius:var(--r);font-size:13px;font-weight:600;transition:var(--tr)}
+.btn{padding:9px 16px;border-radius:var(--r);font-size:13px;font-weight:600;transition:var(--tr);display:inline-flex;align-items:center;gap:7px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
 .btn-primary{background:var(--blue);color:#fff}
 .btn-primary:hover{background:var(--blue-d)}
 .btn-ghost{background:transparent;border:1px solid var(--border2)!important;color:var(--t1)}
 .btn-ghost:hover{color:var(--t0);border-color:var(--t2)!important}
 .btn-danger{background:transparent;color:var(--red);font-size:12px;font-weight:700}
+.btn-danger-solid{background:var(--red);color:#fff}
+.btn-danger-solid:hover{background:#dc2626}
+.btn-amber{background:var(--amber);color:#0a0e17}
+.btn-amber:hover{filter:brightness(1.08)}
+.btn-sm{padding:6px 11px;font-size:12px}
 .btn-block{width:100%}
 
-/* Dashboard */
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+/* Cards */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
 .card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r2);padding:16px}
 .card-label{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.4px}
 .card-value{font-family:var(--font-mono);font-weight:700;font-size:24px;margin-top:8px}
+.card-value.sm{font-size:16px}
 
 .panel{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;margin-bottom:20px}
-.panel-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
 .panel-title{font-weight:700;font-size:14px}
 .panel-sub{color:var(--t2);font-size:12px;margin-top:2px}
+.panel-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.panel-body{padding:16px}
 
 table{width:100%;border-collapse:collapse;font-size:12.5px}
-th{text-align:left;padding:10px 14px;color:var(--t2);font-weight:700;text-transform:uppercase;font-size:10.5px;letter-spacing:.3px;border-bottom:1px solid var(--border)}
-td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--t1)}
+th{text-align:left;padding:10px 14px;color:var(--t2);font-weight:700;text-transform:uppercase;font-size:10.5px;letter-spacing:.3px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--t1);vertical-align:middle}
 tr:last-child td{border-bottom:none}
-.pill{display:inline-flex;border:1px solid var(--border2);border-radius:999px;padding:2px 9px;font-size:10px;font-weight:800}
+.mono{font-family:var(--font-mono)}
+.pill{display:inline-flex;border:1px solid var(--border2);border-radius:999px;padding:2px 9px;font-size:10px;font-weight:800;white-space:nowrap}
 .pill-pending{color:var(--amber);background:var(--amber-bg)}
-.pill-active{color:var(--green);background:var(--green-bg)}
-.pill-disabled{color:var(--red);background:var(--red-bg)}
-.actions{display:flex;gap:12px;flex-wrap:wrap}
-.link-btn{color:var(--blue);font-size:12px;font-weight:700}
+.pill-active,.pill-success{color:var(--green);background:var(--green-bg)}
+.pill-disabled,.pill-error,.pill-failed{color:var(--red);background:var(--red-bg)}
+.pill-running{color:var(--blue);background:var(--blue-bg)}
+.pill-neutral{color:var(--t2);background:var(--bg2)}
+.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.link-btn{color:var(--blue);font-size:12px;font-weight:700;background:none}
 .link-btn:hover{text-decoration:underline}
+.chk{width:15px;height:15px;accent-color:var(--blue);cursor:pointer}
 
-.placeholder-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:16px}
-.placeholder-card{background:var(--bg2);border:1px dashed var(--border2);border-radius:var(--r2);padding:16px;text-align:center;color:var(--t3)}
-.placeholder-card .ph-title{color:var(--t2);font-weight:700;font-size:12.5px;margin-bottom:4px}
-.placeholder-card .ph-sub{font-size:11px}
-
-.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:10px 18px;font-size:12.5px;opacity:0;pointer-events:none;transition:var(--tr);z-index:999}
-.toast.show{opacity:1}
+/* Pagination + bulk bar */
+.pager{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--t2)}
+.pager .pg-btns{display:flex;gap:6px}
+.bulkbar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--blue-bg);border-bottom:1px solid var(--border);font-size:12.5px}
+.bulkbar b{color:var(--t0)}
+.filter-row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;padding:14px 16px;border-bottom:1px solid var(--border)}
+.filter-row .field{margin-bottom:0}
 .empty-row td{text-align:center;color:var(--t2);padding:24px}
-@media(max-width:800px){.cards{grid-template-columns:repeat(2,1fr)}}
+.note{font-size:12px;color:var(--t2);line-height:1.5}
+.note-warn{color:var(--amber)}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:8px 16px;font-size:13px}
+.kv dt{color:var(--t2)}
+.kv dd{color:var(--t0);font-weight:600}
+.code-box{font-family:var(--font-mono);font-size:12px;background:var(--bg0);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;word-break:break-all;color:var(--t1)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:900;padding:20px}
+.modal{background:var(--bg1);border:1px solid var(--border2);border-radius:var(--r2);box-shadow:var(--shadow-md);width:100%;max-width:440px;overflow:hidden}
+.modal-title{font-weight:700;font-size:15px;padding:18px 20px 0}
+.modal-body{padding:12px 20px 20px;color:var(--t1);font-size:13px;line-height:1.55}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:10px 18px;font-size:12.5px;opacity:0;pointer-events:none;transition:var(--tr);z-index:999;max-width:90vw}
+.toast.show{opacity:1}
+.toast.err{border-color:var(--red);color:#fecaca}
+.toast.ok{border-color:var(--green);color:#bbf7d0}
+
+@media(max-width:800px){.cards{grid-template-columns:repeat(2,1fr)}.kv{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -94,63 +140,171 @@ tr:last-child td{border-bottom:none}
   <a class="logo" href="./index.html" style="text-decoration:none;color:inherit">TrendPlus <span>Admin</span></a>
   <a href="./index.html" style="color:var(--t2);font-size:12.5px;text-decoration:none;font-weight:500;margin-left:16px">← Screener</a>
   <div class="topbar-right">
-    <button class="btn btn-ghost hidden" id="logoutBtn" onclick="adminLogout()">Log out</button>
+    <span class="whoami hidden" id="whoami"></span>
+    <button class="btn btn-ghost btn-sm hidden" id="logoutBtn" onclick="adminLogout()">Log out</button>
   </div>
 </header>
 
+<!-- ── Login ─────────────────────────────────────────────────── -->
 <div class="login-wrap" id="loginScreen">
   <div class="login-card">
     <h1>Admin Login</h1>
     <p>Restricted access. Admin credentials are separate from user accounts.</p>
-    <div class="field"><label>Username</label><input class="finput" id="adminUsername" type="text" autocomplete="username"/></div>
-    <div class="field"><label>Password</label><input class="finput" id="adminPassword" type="password" autocomplete="current-password"/></div>
-    <button class="btn btn-primary btn-block" onclick="adminLogin()">Log in</button>
+    <div class="field"><label>Username</label><input class="finput" id="adminUsername" type="text" autocomplete="username" onkeydown="if(event.key==='Enter')adminLogin()"/></div>
+    <div class="field"><label>Password</label><input class="finput" id="adminPassword" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')adminLogin()"/></div>
+    <div class="field hidden" id="totpField"><label>2FA Code</label><input class="finput" id="adminTotp" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" onkeydown="if(event.key==='Enter')adminLogin()"/></div>
+    <button class="btn btn-primary btn-block" id="loginBtn" onclick="adminLogin()">Log in</button>
   </div>
 </div>
 
-<div class="wrap hidden" id="dashboardScreen">
+<!-- ── App ───────────────────────────────────────────────────── -->
+<div class="wrap hidden" id="appScreen">
+  <nav class="tab-nav">
+    <button data-tab="dashboard" class="active" onclick="switchTab('dashboard')">Dashboard</button>
+    <button data-tab="users" onclick="switchTab('users')">Users<span class="nav-badge" id="pendingNavBadge" hidden>0</span></button>
+    <button data-tab="engine" onclick="switchTab('engine')">Engine &amp; Data</button>
+    <button data-tab="audit" onclick="switchTab('audit')">Audit Log</button>
+    <button data-tab="settings" onclick="switchTab('settings')">Settings</button>
+  </nav>
 
-  <div class="cards" id="dashboardCards"></div>
-
-  <section class="panel">
-    <div class="panel-head">
-      <div><div class="panel-title">Pending Users</div><div class="panel-sub">New registrations awaiting approval</div></div>
-    </div>
-    <div style="overflow:auto">
-      <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Registered</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody id="pendingBody"></tbody>
-      </table>
-    </div>
+  <!-- Dashboard -->
+  <section class="tab-panel" id="tab-dashboard">
+    <div class="cards" id="dashboardCards"></div>
+    <section class="panel">
+      <div class="panel-head"><div><div class="panel-title">Engine snapshot</div><div class="panel-sub">Latest data-engine run</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="switchTab('engine')">Open Engine &amp; Data →</button>
+      </div>
+      <div class="panel-body" id="engineSnapshot"><div class="note">Loading…</div></div>
+    </section>
   </section>
 
-  <section class="panel">
-    <div class="panel-head">
-      <div><div class="panel-title">Existing Users</div><div class="panel-sub">Approved accounts</div></div>
-      <input class="finput" id="userSearch" placeholder="Search name or email…" style="max-width:220px" oninput="renderUsers()"/>
-    </div>
-    <div style="overflow:auto">
-      <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Created</th><th>Last Login</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody id="usersBody"></tbody>
-      </table>
-    </div>
+  <!-- Users -->
+  <section class="tab-panel hidden" id="tab-users">
+    <section class="panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Pending Users</div><div class="panel-sub">New registrations awaiting approval</div></div>
+        <div class="panel-head-actions">
+          <button class="btn btn-primary btn-sm" id="bulkApproveBtn" onclick="bulkApprove()" disabled>Approve selected</button>
+        </div>
+      </div>
+      <div class="bulkbar hidden" id="pendingBulkBar"></div>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr>
+            <th style="width:34px"><input type="checkbox" class="chk" id="pendingAll" onchange="toggleAllPending(this.checked)"/></th>
+            <th>Name</th><th>Email</th><th>Phone</th><th>Registered</th><th>Status</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="pendingBody"></tbody>
+        </table>
+      </div>
+      <div class="pager" id="pendingPager"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Existing Users</div><div class="panel-sub">Approved accounts</div></div>
+        <div class="panel-head-actions">
+          <input class="finput" id="userSearch" placeholder="Search name or email…" style="max-width:200px" oninput="usersPage=1;renderUsers()"/>
+          <button class="btn btn-ghost btn-sm" id="bulkDisableBtn" onclick="bulkDisable()" disabled>Disable selected</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportUsersCsv()">⬇ CSV</button>
+        </div>
+      </div>
+      <div class="bulkbar hidden" id="usersBulkBar"></div>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr>
+            <th style="width:34px"><input type="checkbox" class="chk" id="usersAll" onchange="toggleAllUsers(this.checked)"/></th>
+            <th>Name</th><th>Email</th><th>Phone</th><th>Created</th><th>Last Login</th><th>Status</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+      <div class="pager" id="usersPager"></div>
+    </section>
   </section>
 
-  <section class="panel">
-    <div class="panel-head">
-      <div><div class="panel-title">Roadmap</div><div class="panel-sub">Planned admin modules, not yet built</div></div>
-    </div>
-    <div style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:8px">
-      <span class="pill" style="color:var(--t2);background:var(--bg2);border-color:var(--border2)">Website analytics</span>
-      <span class="pill" style="color:var(--t2);background:var(--bg2);border-color:var(--border2)">User feedback</span>
-      <span class="pill" style="color:var(--t2);background:var(--bg2);border-color:var(--border2)">Contact messages</span>
-      <span class="pill" style="color:var(--t2);background:var(--bg2);border-color:var(--border2)">Activity logs</span>
-    </div>
+  <!-- Engine & Data -->
+  <section class="tab-panel hidden" id="tab-engine">
+    <div class="cards" id="engineCards"></div>
+    <section class="panel">
+      <div class="panel-head">
+        <div><div class="panel-title">Engine controls</div><div class="panel-sub">Trigger a data-engine run or a full historical backfill</div></div>
+        <div class="panel-head-actions" id="engineControls"></div>
+      </div>
+      <div class="panel-body" id="engineControlsNote"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><div><div class="panel-title">Run history</div><div class="panel-sub">Last 30 engine runs</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="loadEngine()">↻ Refresh</button>
+      </div>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr><th>Started</th><th>Trigger</th><th>Status</th><th>Symbols</th><th>Bhav files</th><th>Duration</th><th>Error</th></tr></thead>
+          <tbody id="runsBody"></tbody>
+        </table>
+      </div>
+    </section>
   </section>
 
+  <!-- Audit Log -->
+  <section class="tab-panel hidden" id="tab-audit">
+    <section class="panel">
+      <div class="panel-head"><div><div class="panel-title">Audit log</div><div class="panel-sub">Every mutating admin action</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="loadAudit()">↻ Refresh</button>
+      </div>
+      <div class="filter-row">
+        <div class="field"><label>Action</label>
+          <select class="fselect" id="auditAction" style="min-width:180px" onchange="auditOffset=0;loadAudit()">
+            <option value="">All actions</option>
+            <option value="admin.login">admin.login</option>
+            <option value="admin.login_failed">admin.login_failed</option>
+            <option value="user.approve">user.approve</option>
+            <option value="user.reject">user.reject</option>
+            <option value="user.enable">user.enable</option>
+            <option value="user.disable">user.disable</option>
+            <option value="user.delete">user.delete</option>
+            <option value="user.delete_pending">user.delete_pending</option>
+            <option value="user.reset_password">user.reset_password</option>
+            <option value="engine.run">engine.run</option>
+            <option value="engine.backfill">engine.backfill</option>
+            <option value="admin.2fa_enabled">admin.2fa_enabled</option>
+            <option value="admin.2fa_disabled">admin.2fa_disabled</option>
+          </select>
+        </div>
+        <div class="field"><label>Actor</label><input class="finput" id="auditActor" placeholder="username…" style="max-width:180px" onkeydown="if(event.key==='Enter'){auditOffset=0;loadAudit();}"/></div>
+        <button class="btn btn-primary btn-sm" onclick="auditOffset=0;loadAudit()">Filter</button>
+      </div>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>IP</th><th>Details</th></tr></thead>
+          <tbody id="auditBody"></tbody>
+        </table>
+      </div>
+      <div class="pager" id="auditPager"></div>
+    </section>
+  </section>
+
+  <!-- Settings -->
+  <section class="tab-panel hidden" id="tab-settings">
+    <section class="panel">
+      <div class="panel-head"><div><div class="panel-title">Your account</div></div></div>
+      <div class="panel-body"><dl class="kv" id="settingsIdentity"></dl></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><div><div class="panel-title">Two-factor authentication</div><div class="panel-sub">TOTP (authenticator app)</div></div></div>
+      <div class="panel-body" id="settings2fa"><div class="note">Loading…</div></div>
+    </section>
+  </section>
 </div>
 
+<!-- Modal + toast -->
+<div class="modal-overlay hidden" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-actions" id="modalActions"></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -162,45 +316,124 @@ const API = (location.hostname === 'localhost' || location.hostname === '127.0.0
   : PROD_API;
 
 let ADMIN_TOKEN = sessionStorage.getItem('tp_admin_token') || '';
+let ADMIN = null;                 // {username, role, totp_enabled}
+const PAGE_SIZE = 20;
 
-function toast(msg, ms = 3000) {
+const isSuper = () => ADMIN && ADMIN.role === 'superadmin';
+
+/* ── toast / errors ─────────────────────────────────────────── */
+let toastTimer = null;
+function toast(msg, kind = '', ms = 3000) {
   const el = document.getElementById('toast');
-  el.textContent = msg; el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), ms);
+  el.textContent = msg;
+  el.className = 'toast show' + (kind ? ' ' + kind : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
-function cleanErr(msg){ try{ const j=JSON.parse(msg.replace(/^\d+:\s*/,'')); return j.detail || msg; }catch(_){ return msg; } }
+const ok  = (m) => toast(m, 'ok');
+const err = (m) => toast(m, 'err', 5000);
+function cleanErr(msg){ try{ const j=JSON.parse(String(msg).replace(/^\d+:\s*/,'')); return j.detail || msg; }catch(_){ return msg; } }
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(s){ if(!s) return '—'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function fmtDur(secs){ if(secs==null) return '—'; const s=Number(secs); if(s<60) return s.toFixed(1)+'s'; const m=Math.floor(s/60); return m+'m '+Math.round(s%60)+'s'; }
 
+/* ── modal ──────────────────────────────────────────────────── */
+function openModal({ title, bodyHtml, buttons }) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  const wrap = document.getElementById('modalActions');
+  wrap.innerHTML = '';
+  buttons.forEach(b => {
+    const el = document.createElement('button');
+    el.className = 'btn ' + (b.cls || 'btn-ghost');
+    el.textContent = b.label;
+    el.onclick = b.onClick;
+    wrap.appendChild(el);
+  });
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal(){ document.getElementById('modal').classList.add('hidden'); }
+function confirmModal(title, message, confirmLabel = 'Confirm', danger = true) {
+  return new Promise(resolve => {
+    openModal({
+      title,
+      bodyHtml: `<p>${escapeHtml(message)}</p>`,
+      buttons: [
+        { label: 'Cancel', cls: 'btn-ghost', onClick: () => { closeModal(); resolve(false); } },
+        { label: confirmLabel, cls: danger ? 'btn-danger-solid' : 'btn-primary', onClick: () => { closeModal(); resolve(true); } },
+      ],
+    });
+  });
+}
+
+/* ── auth / fetch ───────────────────────────────────────────── */
 async function adminFetch(path, options = {}) {
   const headers = Object.assign({}, options.headers || {});
   if (ADMIN_TOKEN) headers.Authorization = 'Bearer ' + ADMIN_TOKEN;
   if (options.body) headers['Content-Type'] = 'application/json';
   const r = await fetch(API + path, Object.assign({}, options, { headers }));
-  if (!r.ok) { const t = await r.text().catch(() => r.statusText); throw new Error(`${r.status}: ${t}`); }
+  if (!r.ok) {
+    if (r.status === 401 && ADMIN_TOKEN) { setAdminToken(''); }
+    const t = await r.text().catch(() => r.statusText);
+    throw new Error(`${r.status}: ${t}`);
+  }
   return r.json();
 }
 
 function setAdminToken(token) {
   ADMIN_TOKEN = token || '';
-  if (token) sessionStorage.setItem('tp_admin_token', token); else sessionStorage.removeItem('tp_admin_token');
+  if (token) sessionStorage.setItem('tp_admin_token', token);
+  else { sessionStorage.removeItem('tp_admin_token'); ADMIN = null; }
   updateScreens();
 }
 function updateScreens() {
   const on = !!ADMIN_TOKEN;
   document.getElementById('loginScreen').classList.toggle('hidden', on);
-  document.getElementById('dashboardScreen').classList.toggle('hidden', !on);
+  document.getElementById('appScreen').classList.toggle('hidden', !on);
   document.getElementById('logoutBtn').classList.toggle('hidden', !on);
+  const w = document.getElementById('whoami');
+  w.classList.toggle('hidden', !on || !ADMIN);
+  if (on && ADMIN) {
+    w.innerHTML = `<b>${escapeHtml(ADMIN.username)}</b><span class="role-pill role-${ADMIN.role}">${ADMIN.role}</span>`;
+  }
 }
-function adminLogout() { setAdminToken(''); toast('Logged out'); }
+function adminLogout() { setAdminToken(''); ok('Logged out'); }
 
 async function adminLogin() {
+  const btn = document.getElementById('loginBtn');
   try {
+    btn.disabled = true;
     const username = document.getElementById('adminUsername').value.trim();
     const password = document.getElementById('adminPassword').value;
-    const d = await adminFetch('/api/admin/panel/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+    const totp_code = document.getElementById('adminTotp').value.trim() || null;
+    const d = await adminFetch('/api/admin/panel/login', {
+      method: 'POST', body: JSON.stringify({ username, password, totp_code }),
+    });
+    ADMIN = d.admin;
     setAdminToken(d.access_token);
-    toast('Welcome back, ' + d.admin.username);
+    ok('Welcome back, ' + d.admin.username);
+    if (d.totp_setup_required) toast('Superadmin: please set up 2FA in Settings', 'err', 6000);
+    switchTab('dashboard');
     loadAll();
-  } catch (e) { toast(cleanErr(e.message), 5000); }
+  } catch (e) {
+    const msg = cleanErr(e.message);
+    if (/2fa code is required/i.test(msg)) {
+      document.getElementById('totpField').classList.remove('hidden');
+      document.getElementById('adminTotp').focus();
+      toast('Enter your 2FA code to continue');
+    } else {
+      err(msg);
+    }
+  } finally { btn.disabled = false; }
+}
+
+/* ── tabs ───────────────────────────────────────────────────── */
+function switchTab(name) {
+  document.querySelectorAll('.tab-nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('hidden', p.id !== 'tab-' + name));
+  if (name === 'engine') loadEngine();
+  if (name === 'audit') loadAudit();
+  if (name === 'settings') loadSettings();
 }
 
 async function loadAll() {
@@ -208,48 +441,100 @@ async function loadAll() {
   await Promise.all([loadDashboard(), loadPending(), loadUsers()]);
 }
 
+/* ── dashboard ──────────────────────────────────────────────── */
 async function loadDashboard() {
   try {
     const d = await adminFetch('/api/admin/panel/dashboard');
     const items = [['Total Users', d.total_users], ['Pending Users', d.pending_users], ['Active Users', d.active_users], ['Disabled Users', d.disabled_users]];
     document.getElementById('dashboardCards').innerHTML = items.map(([l, v]) =>
       `<div class="card"><div class="card-label">${l}</div><div class="card-value">${v ?? 0}</div></div>`).join('');
-  } catch (e) { toast(cleanErr(e.message), 5000); if (e.message.startsWith('401')) setAdminToken(''); }
+    const badge = document.getElementById('pendingNavBadge');
+    badge.textContent = d.pending_users || 0;
+    badge.hidden = !d.pending_users;
+  } catch (e) { err(cleanErr(e.message)); }
+  try {
+    const s = await adminFetch('/api/admin/status');
+    const lr = s.last_run;
+    document.getElementById('engineSnapshot').innerHTML = lr ? `
+      <dl class="kv">
+        <dt>Status</dt><dd>${statusPill(lr.status)}</dd>
+        <dt>Latest data date</dt><dd class="mono">${s.latest_date || '—'}</dd>
+        <dt>Symbols processed</dt><dd class="mono">${lr.symbols_processed ?? '—'}</dd>
+        <dt>Duration</dt><dd class="mono">${fmtDur(lr.duration_secs)}</dd>
+        <dt>Finished</dt><dd class="mono">${fmtDate(lr.finished_at)}</dd>
+      </dl>` : `<div class="note">No engine runs recorded yet.</div>`;
+  } catch (e) { document.getElementById('engineSnapshot').innerHTML = `<div class="note note-warn">Couldn't load engine status.</div>`; }
 }
+function statusPill(s){ const k=String(s||'').toLowerCase(); const cls=k==='success'?'pill-success':k==='running'?'pill-running':k==='failed'||k==='error'?'pill-failed':'pill-neutral'; return `<span class="pill ${cls}">${escapeHtml(s||'—')}</span>`; }
 
+/* ── users: pending ─────────────────────────────────────────── */
+let PENDING = [], pendingPage = 1, pendingSel = new Set();
 async function loadPending() {
   try {
     const d = await adminFetch('/api/admin/panel/pending-users');
-    const rows = d.data || [];
-    document.getElementById('pendingBody').innerHTML = rows.length ? rows.map(u => `
-      <tr>
-        <td>${escapeHtml(u.full_name)}</td>
-        <td>${escapeHtml(u.email)}</td>
-        <td>${escapeHtml(u.phone)}</td>
-        <td>${fmtDate(u.created_at)}</td>
-        <td><span class="pill ${u.status === 'pending' ? 'pill-pending' : 'pill-disabled'}">${u.status}</span></td>
-        <td class="actions">
-          <button class="link-btn" onclick="approveUser(${u.id})">Approve</button>
-          <button class="link-btn" onclick="rejectUser(${u.id})">Reject</button>
-          <button class="btn-danger" onclick="deletePending(${u.id})">Delete</button>
-        </td>
-      </tr>`).join('') : `<tr class="empty-row"><td colspan="6">No pending registrations</td></tr>`;
-  } catch (e) { toast(cleanErr(e.message), 5000); }
+    PENDING = (d.data || []).filter(u => u.status === 'pending').concat((d.data || []).filter(u => u.status !== 'pending'));
+    pendingSel.clear();
+    renderPending();
+  } catch (e) { err(cleanErr(e.message)); }
+}
+function renderPending() {
+  const tot = PENDING.length, pages = Math.max(1, Math.ceil(tot / PAGE_SIZE));
+  pendingPage = Math.min(pendingPage, pages);
+  const slice = PENDING.slice((pendingPage - 1) * PAGE_SIZE, pendingPage * PAGE_SIZE);
+  document.getElementById('pendingBody').innerHTML = slice.length ? slice.map(u => `
+    <tr>
+      <td>${u.status === 'pending' ? `<input type="checkbox" class="chk" data-pid="${u.id}" ${pendingSel.has(u.id) ? 'checked' : ''} onchange="togglePending(${u.id},this.checked)"/>` : ''}</td>
+      <td>${escapeHtml(u.full_name)}</td>
+      <td>${escapeHtml(u.email)}</td>
+      <td>${escapeHtml(u.phone)}</td>
+      <td>${fmtDate(u.created_at)}</td>
+      <td><span class="pill ${u.status === 'pending' ? 'pill-pending' : 'pill-disabled'}">${u.status}</span></td>
+      <td class="actions">
+        ${u.status === 'pending' ? `<button class="link-btn" onclick="approveUser(${u.id})">Approve</button>
+        <button class="link-btn" onclick="rejectUser(${u.id})">Reject</button>` : ''}
+        <button class="btn-danger" onclick="deletePending(${u.id})">Delete</button>
+      </td>
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="7">No pending registrations</td></tr>`;
+  renderPager('pendingPager', pendingPage, pages, tot, (p) => { pendingPage = p; renderPending(); });
+  syncPendingBulk();
+}
+function togglePending(id, on){ on ? pendingSel.add(id) : pendingSel.delete(id); syncPendingBulk(); }
+function toggleAllPending(on){ document.querySelectorAll('#pendingBody input[data-pid]').forEach(c => { c.checked = on; togglePending(Number(c.dataset.pid), on); }); }
+function syncPendingBulk(){
+  const n = pendingSel.size;
+  const bar = document.getElementById('pendingBulkBar');
+  bar.classList.toggle('hidden', n === 0);
+  bar.innerHTML = `<b>${n}</b> selected`;
+  document.getElementById('bulkApproveBtn').disabled = n === 0;
+}
+async function bulkApprove() {
+  const ids = [...pendingSel];
+  if (!ids.length) return;
+  if (!(await confirmModal('Approve users', `Approve ${ids.length} pending registration(s)?`, 'Approve', false))) return;
+  let done = 0;
+  for (const id of ids) { try { await adminFetch(`/api/admin/panel/pending-users/${id}/approve`, { method: 'POST' }); done++; } catch (e) { err(cleanErr(e.message)); } }
+  ok(`Approved ${done} user(s)`); loadAll();
 }
 
-let USERS = [];
+/* ── users: existing ────────────────────────────────────────── */
+let USERS = [], usersPage = 1, usersSel = new Set();
 async function loadUsers() {
-  try {
-    const d = await adminFetch('/api/admin/panel/users');
-    USERS = d.data || [];
-    renderUsers();
-  } catch (e) { toast(cleanErr(e.message), 5000); }
+  try { const d = await adminFetch('/api/admin/panel/users'); USERS = d.data || []; usersSel.clear(); renderUsers(); }
+  catch (e) { err(cleanErr(e.message)); }
+}
+function filteredUsers() {
+  const q = (document.getElementById('userSearch')?.value || '').trim().toLowerCase();
+  return q ? USERS.filter(u => (u.full_name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)) : USERS;
 }
 function renderUsers() {
-  const q = (document.getElementById('userSearch')?.value || '').trim().toLowerCase();
-  const rows = q ? USERS.filter(u => (u.full_name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q)) : USERS;
-  document.getElementById('usersBody').innerHTML = rows.length ? rows.map(u => `
+  const list = filteredUsers();
+  const tot = list.length, pages = Math.max(1, Math.ceil(tot / PAGE_SIZE));
+  usersPage = Math.min(usersPage, pages);
+  const slice = list.slice((usersPage - 1) * PAGE_SIZE, usersPage * PAGE_SIZE);
+  const canDestroy = isSuper();
+  document.getElementById('usersBody').innerHTML = slice.length ? slice.map(u => `
     <tr>
+      <td><input type="checkbox" class="chk" data-uid="${u.id}" ${usersSel.has(u.id) ? 'checked' : ''} onchange="toggleUser('${u.id}',this.checked)"/></td>
       <td>${escapeHtml(u.full_name)}</td>
       <td>${escapeHtml(u.email)}</td>
       <td>${escapeHtml(u.phone || '—')}</td>
@@ -257,34 +542,212 @@ function renderUsers() {
       <td>${u.last_login_at ? fmtDate(u.last_login_at) : '—'}</td>
       <td><span class="pill ${u.active ? 'pill-active' : 'pill-disabled'}">${u.active ? 'Active' : 'Disabled'}</span></td>
       <td class="actions">
-        ${u.active
-          ? `<button class="link-btn" onclick="disableUser(${u.id})">Disable</button>`
-          : `<button class="link-btn" onclick="enableUser(${u.id})">Enable</button>`}
-        <button class="link-btn" onclick="resetPassword(${u.id})">Reset Password</button>
-        <button class="btn-danger" onclick="deleteUser(${u.id})">Delete</button>
+        ${u.active ? `<button class="link-btn" onclick="disableUser('${u.id}')">Disable</button>` : `<button class="link-btn" onclick="enableUser('${u.id}')">Enable</button>`}
+        ${canDestroy ? `<button class="link-btn" onclick="resetPassword('${u.id}')">Reset Password</button>
+        <button class="btn-danger" onclick="deleteUser('${u.id}')">Delete</button>` : ''}
       </td>
-    </tr>`).join('') : `<tr class="empty-row"><td colspan="7">${q ? 'No users match your search' : 'No users yet'}</td></tr>`;
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="8">No users${filteredUsers() !== USERS ? ' match your search' : ' yet'}</td></tr>`;
+  renderPager('usersPager', usersPage, pages, tot, (p) => { usersPage = p; renderUsers(); });
+  syncUsersBulk();
+}
+function toggleUser(id, on){ on ? usersSel.add(id) : usersSel.delete(id); syncUsersBulk(); }
+function toggleAllUsers(on){ document.querySelectorAll('#usersBody input[data-uid]').forEach(c => { c.checked = on; toggleUser(c.dataset.uid, on); }); }
+function syncUsersBulk(){
+  const n = usersSel.size;
+  const bar = document.getElementById('usersBulkBar');
+  bar.classList.toggle('hidden', n === 0);
+  bar.innerHTML = `<b>${n}</b> selected`;
+  document.getElementById('bulkDisableBtn').disabled = n === 0;
+}
+async function bulkDisable() {
+  const ids = [...usersSel];
+  if (!ids.length) return;
+  if (!(await confirmModal('Disable users', `Disable ${ids.length} selected account(s)? They will be unable to log in.`, 'Disable'))) return;
+  let done = 0;
+  for (const id of ids) { try { await adminFetch(`/api/admin/panel/users/${id}/disable`, { method: 'POST' }); done++; } catch (e) { err(cleanErr(e.message)); } }
+  ok(`Disabled ${done} account(s)`); loadUsers(); loadDashboard();
+}
+function exportUsersCsv() {
+  const headers = ['Name', 'Email', 'Phone', 'Created', 'Last Login', 'Status'];
+  const rows = filteredUsers().map(u => [u.full_name, u.email, u.phone || '', u.created_at || '', u.last_login_at || '', u.active ? 'Active' : 'Disabled']);
+  const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `trendplus-users-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click(); URL.revokeObjectURL(a.href);
 }
 
-async function approveUser(id) { try { await adminFetch(`/api/admin/panel/pending-users/${id}/approve`, { method: 'POST' }); toast('User approved'); loadAll(); } catch (e) { toast(cleanErr(e.message), 5000); } }
-async function rejectUser(id) { try { await adminFetch(`/api/admin/panel/pending-users/${id}/reject`, { method: 'POST' }); toast('Registration rejected'); loadAll(); } catch (e) { toast(cleanErr(e.message), 5000); } }
-async function deletePending(id) { if (!confirm('Delete this pending registration?')) return; try { await adminFetch(`/api/admin/panel/pending-users/${id}`, { method: 'DELETE' }); toast('Deleted'); loadAll(); } catch (e) { toast(cleanErr(e.message), 5000); } }
-async function enableUser(id) { try { await adminFetch(`/api/admin/panel/users/${id}/enable`, { method: 'POST' }); toast('User enabled'); loadUsers(); loadDashboard(); } catch (e) { toast(cleanErr(e.message), 5000); } }
-async function disableUser(id) { try { await adminFetch(`/api/admin/panel/users/${id}/disable`, { method: 'POST' }); toast('User disabled'); loadUsers(); loadDashboard(); } catch (e) { toast(cleanErr(e.message), 5000); } }
-async function deleteUser(id) { if (!confirm('Delete this user permanently?')) return; try { await adminFetch(`/api/admin/panel/users/${id}`, { method: 'DELETE' }); toast('User deleted'); loadAll(); } catch (e) { toast(cleanErr(e.message), 5000); } }
-async function resetPassword(id) {
-  if (!confirm('Generate a new temporary password for this user?')) return;
+/* ── per-row user actions ───────────────────────────────────── */
+async function approveUser(id){ try{ await adminFetch(`/api/admin/panel/pending-users/${id}/approve`,{method:'POST'}); ok('User approved'); loadAll(); }catch(e){ err(cleanErr(e.message)); } }
+async function rejectUser(id){ if(!(await confirmModal('Reject registration','Reject this pending registration?','Reject')))return; try{ await adminFetch(`/api/admin/panel/pending-users/${id}/reject`,{method:'POST'}); ok('Registration rejected'); loadAll(); }catch(e){ err(cleanErr(e.message)); } }
+async function deletePending(id){ if(!(await confirmModal('Delete registration','Permanently delete this pending registration?','Delete')))return; try{ await adminFetch(`/api/admin/panel/pending-users/${id}`,{method:'DELETE'}); ok('Deleted'); loadAll(); }catch(e){ err(cleanErr(e.message)); } }
+async function enableUser(id){ try{ await adminFetch(`/api/admin/panel/users/${id}/enable`,{method:'POST'}); ok('User enabled'); loadUsers(); loadDashboard(); }catch(e){ err(cleanErr(e.message)); } }
+async function disableUser(id){ if(!(await confirmModal('Disable account','Disable this account? The user will be unable to log in.','Disable')))return; try{ await adminFetch(`/api/admin/panel/users/${id}/disable`,{method:'POST'}); ok('User disabled'); loadUsers(); loadDashboard(); }catch(e){ err(cleanErr(e.message)); } }
+async function deleteUser(id){ if(!(await confirmModal('Delete user','Permanently delete this user and all their data? This cannot be undone.','Delete permanently')))return; try{ await adminFetch(`/api/admin/panel/users/${id}`,{method:'DELETE'}); ok('User deleted'); loadAll(); }catch(e){ err(cleanErr(e.message)); } }
+async function resetPassword(id){
+  if(!(await confirmModal('Reset password','Generate a new temporary password for this user? Their current password will stop working.','Reset password'))) return;
+  try{
+    const d = await adminFetch(`/api/admin/panel/users/${id}/reset-password`,{method:'POST'});
+    openModal({
+      title: 'Temporary password',
+      bodyHtml: `<p style="margin-bottom:10px">Share this securely with the user. They should change it after logging in.</p>
+                 <div class="code-box" id="tmpPw">${escapeHtml(d.temporary_password)}</div>`,
+      buttons: [
+        { label: 'Copy', cls: 'btn-primary', onClick: () => { navigator.clipboard?.writeText(d.temporary_password); ok('Copied'); } },
+        { label: 'Close', cls: 'btn-ghost', onClick: closeModal },
+      ],
+    });
+  }catch(e){ err(cleanErr(e.message)); }
+}
+
+/* ── pagination widget ──────────────────────────────────────── */
+function renderPager(elId, page, pages, total, go) {
+  const el = document.getElementById(elId);
+  if (total <= PAGE_SIZE) { el.innerHTML = `<span>${total} total</span>`; return; }
+  el.innerHTML = `<span>${total} total · page ${page}/${pages}</span>
+    <span class="pg-btns">
+      <button class="btn btn-ghost btn-sm" ${page <= 1 ? 'disabled' : ''} data-go="${page - 1}">‹ Prev</button>
+      <button class="btn btn-ghost btn-sm" ${page >= pages ? 'disabled' : ''} data-go="${page + 1}">Next ›</button>
+    </span>`;
+  el.querySelectorAll('button[data-go]').forEach(b => b.onclick = () => go(Number(b.dataset.go)));
+}
+
+/* ── engine & data ──────────────────────────────────────────── */
+async function loadEngine() {
   try {
-    const d = await adminFetch(`/api/admin/panel/users/${id}/reset-password`, { method: 'POST' });
-    prompt('Temporary password (copy and share securely with the user):', d.temporary_password);
-  } catch (e) { toast(cleanErr(e.message), 5000); }
+    const s = await adminFetch('/api/admin/status');
+    const lr = s.last_run || {};
+    document.getElementById('engineCards').innerHTML = [
+      ['Total symbols', s.total_symbols ?? '—'],
+      ['Trading days', s.total_trading_days ?? '—'],
+      ['Successful runs', s.successful_runs ?? '—'],
+      ['Latest date', s.latest_date || '—'],
+    ].map(([l, v]) => `<div class="card"><div class="card-label">${l}</div><div class="card-value sm">${v}</div></div>`).join('');
+
+    const controls = document.getElementById('engineControls');
+    const note = document.getElementById('engineControlsNote');
+    if (isSuper()) {
+      controls.innerHTML = `<button class="btn btn-primary btn-sm" ${s.currently_running ? 'disabled' : ''} onclick="triggerRun()">▶ Run engine</button>
+        <button class="btn btn-amber btn-sm" ${s.currently_running ? 'disabled' : ''} onclick="triggerBackfill()">⟳ Full backfill</button>`;
+      note.innerHTML = s.currently_running
+        ? `<div class="note note-warn">An engine run is currently in progress.</div>`
+        : `<div class="note">A run processes the latest bhav files. A <b>backfill</b> re-processes all historical files and can take several minutes.</div>`;
+    } else {
+      controls.innerHTML = '';
+      note.innerHTML = `<div class="note note-warn">Engine controls require a superadmin account.</div>`;
+    }
+  } catch (e) { err(cleanErr(e.message)); }
+
+  try {
+    const d = await adminFetch('/api/admin/runs?limit=30');
+    const runs = d.runs || [];
+    document.getElementById('runsBody').innerHTML = runs.length ? runs.map(r => `
+      <tr>
+        <td class="mono">${fmtDate(r.started_at)}</td>
+        <td><span class="pill pill-neutral">${escapeHtml(r.trigger || '—')}</span></td>
+        <td>${statusPill(r.status)}</td>
+        <td class="mono">${r.symbols_processed ?? '—'}</td>
+        <td class="mono">${r.bhav_files_loaded ?? '—'}</td>
+        <td class="mono">${fmtDur(r.duration_secs)}</td>
+        <td style="color:var(--red);max-width:220px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(r.error_message || '')}</td>
+      </tr>`).join('') : `<tr class="empty-row"><td colspan="7">No runs recorded</td></tr>`;
+  } catch (e) { err(cleanErr(e.message)); }
+}
+async function triggerRun() {
+  if (!(await confirmModal('Run engine', 'Start a data-engine run now?', 'Run', false))) return;
+  try { await adminFetch('/api/admin/run', { method: 'POST' }); ok('Engine run started'); setTimeout(loadEngine, 800); }
+  catch (e) { err(cleanErr(e.message)); }
+}
+async function triggerBackfill() {
+  if (!(await confirmModal('Full backfill', 'Re-process ALL historical bhav files? This is expensive and can take several minutes.', 'Start backfill'))) return;
+  try { await adminFetch('/api/admin/backfill', { method: 'POST' }); ok('Backfill started'); setTimeout(loadEngine, 800); }
+  catch (e) { err(cleanErr(e.message)); }
 }
 
-function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-function fmtDate(s) { if (!s) return '—'; const d = new Date(s); return isNaN(d) ? s : d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+/* ── audit log ──────────────────────────────────────────────── */
+let auditOffset = 0, auditTotal = 0;
+async function loadAudit() {
+  try {
+    const action = document.getElementById('auditAction').value;
+    const actor = document.getElementById('auditActor').value.trim();
+    const qs = new URLSearchParams({ limit: PAGE_SIZE, offset: auditOffset });
+    if (action) qs.set('action', action);
+    if (actor) qs.set('actor', actor);
+    const d = await adminFetch('/api/admin/panel/audit-log?' + qs.toString());
+    auditTotal = d.total || 0;
+    const rows = d.data || [];
+    document.getElementById('auditBody').innerHTML = rows.length ? rows.map(r => `
+      <tr>
+        <td class="mono">${fmtDate(r.created_at)}</td>
+        <td>${escapeHtml(r.actor_label)}</td>
+        <td><span class="pill pill-neutral">${escapeHtml(r.action)}</span></td>
+        <td class="mono">${escapeHtml(r.target_type ? r.target_type + (r.target_id ? ':' + r.target_id : '') : '—')}</td>
+        <td class="mono">${escapeHtml(r.ip_address || '—')}</td>
+        <td class="mono" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(metaStr(r.metadata))}</td>
+      </tr>`).join('') : `<tr class="empty-row"><td colspan="6">No audit entries</td></tr>`;
+    const page = Math.floor(auditOffset / PAGE_SIZE) + 1, pages = Math.max(1, Math.ceil(auditTotal / PAGE_SIZE));
+    const el = document.getElementById('auditPager');
+    el.innerHTML = `<span>${auditTotal} total · page ${page}/${pages}</span>
+      <span class="pg-btns">
+        <button class="btn btn-ghost btn-sm" ${auditOffset <= 0 ? 'disabled' : ''} data-d="-1">‹ Prev</button>
+        <button class="btn btn-ghost btn-sm" ${auditOffset + PAGE_SIZE >= auditTotal ? 'disabled' : ''} data-d="1">Next ›</button>
+      </span>`;
+    el.querySelectorAll('button[data-d]').forEach(b => b.onclick = () => { auditOffset = Math.max(0, auditOffset + Number(b.dataset.d) * PAGE_SIZE); loadAudit(); });
+  } catch (e) { err(cleanErr(e.message)); }
+}
+function metaStr(m){ if(!m) return ''; if(typeof m==='string'){ try{ m=JSON.parse(m); }catch(_){ return m; } } const keys=Object.keys(m); return keys.length?keys.map(k=>`${k}=${m[k]}`).join(' '):''; }
 
+/* ── settings ───────────────────────────────────────────────── */
+async function loadSettings() {
+  try {
+    const me = await adminFetch('/api/admin/panel/me');
+    ADMIN = { username: me.username, role: me.role, totp_enabled: me.totp_enabled };
+    updateScreens();
+    document.getElementById('settingsIdentity').innerHTML = `
+      <dt>Username</dt><dd>${escapeHtml(me.username)}</dd>
+      <dt>Role</dt><dd><span class="role-pill role-${me.role}">${me.role}</span></dd>
+      <dt>2FA</dt><dd>${me.totp_enabled ? '<span class="pill pill-success">Enabled</span>' : '<span class="pill pill-neutral">Off</span>'}</dd>`;
+    render2fa(me.totp_enabled);
+  } catch (e) { err(cleanErr(e.message)); }
+}
+function render2fa(enabled) {
+  const el = document.getElementById('settings2fa');
+  if (enabled) {
+    el.innerHTML = `<p class="note" style="margin-bottom:12px">Two-factor authentication is <b style="color:var(--green)">enabled</b>. You'll be asked for a code at login.</p>
+      <div class="field" style="max-width:200px"><label>Current code</label><input class="finput" id="disableTotpCode" inputmode="numeric" maxlength="6" placeholder="6-digit code"/></div>
+      <button class="btn btn-danger-solid btn-sm" onclick="disable2fa()">Disable 2FA</button>`;
+  } else {
+    el.innerHTML = `<p class="note" style="margin-bottom:12px">Protect your admin account with a TOTP authenticator app (Google Authenticator, Authy, 1Password…).${isSuper() ? ' <span class="note-warn">Recommended for superadmins.</span>' : ''}</p>
+      <button class="btn btn-primary btn-sm" onclick="enroll2fa()">Set up 2FA</button>`;
+  }
+}
+async function enroll2fa() {
+  try {
+    const d = await adminFetch('/api/admin/panel/2fa/enroll', { method: 'POST' });
+    document.getElementById('settings2fa').innerHTML = `
+      <p class="note" style="margin-bottom:10px">1. Add this secret to your authenticator app (or use the otpauth URI):</p>
+      <div class="code-box" style="margin-bottom:8px">${escapeHtml(d.secret)}</div>
+      <div class="code-box" style="margin-bottom:14px;color:var(--t3)">${escapeHtml(d.otpauth_uri)}</div>
+      <p class="note" style="margin-bottom:10px">2. Enter the current 6-digit code to activate:</p>
+      <div class="field" style="max-width:200px"><input class="finput" id="verifyTotpCode" inputmode="numeric" maxlength="6" placeholder="6-digit code"/></div>
+      <button class="btn btn-primary btn-sm" onclick="verify2fa()">Verify &amp; enable</button>`;
+  } catch (e) { err(cleanErr(e.message)); }
+}
+async function verify2fa() {
+  const code = document.getElementById('verifyTotpCode').value.trim();
+  try { await adminFetch('/api/admin/panel/2fa/verify', { method: 'POST', body: JSON.stringify({ code }) }); ok('2FA enabled'); loadSettings(); }
+  catch (e) { err(cleanErr(e.message)); }
+}
+async function disable2fa() {
+  const code = document.getElementById('disableTotpCode').value.trim();
+  try { await adminFetch('/api/admin/panel/2fa/disable', { method: 'POST', body: JSON.stringify({ code }) }); ok('2FA disabled'); loadSettings(); }
+  catch (e) { err(cleanErr(e.message)); }
+}
+
+/* ── boot ───────────────────────────────────────────────────── */
 updateScreens();
-if (ADMIN_TOKEN) loadAll();
+if (ADMIN_TOKEN) { loadSettings().then(loadAll); }
 </script>
 </body>
 </html>
