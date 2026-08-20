@@ -10,22 +10,59 @@ GET  /api/admin/calendar        — market calendar (last 30 days)
 All POST endpoints require header:  X-Admin-Secret: <ADMIN_SECRET>
 """
 import asyncio
+import hmac
 import logging
 import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
 from app.core.config import settings
 from app.core.database import get_pool
+from app.api.deps import client_ip, decode_token_admin_optional
+from app.services.audit import log_admin_action
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _secret_ok(x_admin_secret: Optional[str]) -> bool:
+    """Constant-time comparison of the shared admin secret (guards against timing attacks)."""
+    if not x_admin_secret:
+        return False
+    return hmac.compare_digest(
+        x_admin_secret.encode("utf-8"),
+        (settings.ADMIN_SECRET or "").encode("utf-8"),
+    )
+
+
 def _verify_secret(x_admin_secret: str = Header(..., alias="X-Admin-Secret")) -> None:
-    """Dependency — validates admin secret header."""
-    if x_admin_secret != settings.ADMIN_SECRET:
+    """Dependency — validates admin secret header in constant time."""
+    if not _secret_ok(x_admin_secret):
         raise HTTPException(status_code=403, detail="Invalid admin secret")
+
+
+async def engine_actor(
+    request: Request,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+    authorization: Optional[str] = Header(default=None),
+    pool=Depends(get_pool),
+) -> dict:
+    """
+    Authorises an engine run/backfill by EITHER:
+      - a valid X-Admin-Secret header (programmatic / cron use — no identity), OR
+      - a superadmin bearer token (interactive use from the admin panel).
+
+    Returns an actor descriptor used for audit logging.
+    """
+    if _secret_ok(x_admin_secret):
+        return {"admin_id": None, "actor_label": "x-admin-secret", "ip": client_ip(request)}
+
+    admin = await decode_token_admin_optional(authorization, pool)
+    if admin and admin.get("role") == "superadmin":
+        return {"admin_id": admin["id"], "actor_label": admin["username"], "ip": client_ip(request)}
+    if admin:
+        raise HTTPException(status_code=403, detail="This action requires a superadmin account")
+    raise HTTPException(status_code=403, detail="Invalid admin secret")
 
 
 # ── STATUS ────────────────────────────────────────────────────────────
@@ -112,13 +149,14 @@ async def get_calendar(
 
 
 # ── TRIGGER DAILY RUN ────────────────────────────────────────────────
-@router.post("/run", summary="Trigger engine run",
-             dependencies=[Depends(_verify_secret)])
-async def trigger_run(pool=Depends(get_pool)):
+@router.post("/run", summary="Trigger engine run")
+async def trigger_run(actor: dict = Depends(engine_actor), pool=Depends(get_pool)):
     """
     Triggers a full engine run in the background.
     The run loads all bhav files, computes metrics, and upserts to DB.
     Returns immediately — check /api/admin/status for progress.
+
+    Requires a valid X-Admin-Secret header OR a superadmin bearer token.
     """
     # Check if a run is already in progress
     async with pool.acquire() as conn:
@@ -130,17 +168,22 @@ async def trigger_run(pool=Depends(get_pool)):
             detail="An engine run is already in progress")
 
     asyncio.create_task(_run_engine_task(pool, trigger="manual"))
+    await log_admin_action(
+        pool, action="engine.run", actor_label=actor["actor_label"],
+        admin_id=actor["admin_id"], target_type="engine", ip_address=actor["ip"],
+    )
     return {"status": "triggered", "message": "Engine run started in background"}
 
 
 # ── TRIGGER BACKFILL ──────────────────────────────────────────────────
-@router.post("/backfill", summary="Trigger full historical backfill",
-             dependencies=[Depends(_verify_secret)])
-async def trigger_backfill(pool=Depends(get_pool)):
+@router.post("/backfill", summary="Trigger full historical backfill")
+async def trigger_backfill(actor: dict = Depends(engine_actor), pool=Depends(get_pool)):
     """
     Re-processes ALL bhav files in DATA_FOLDER.
     Use this on first setup or to re-compute all historical data.
     Takes several minutes for 252 files × 2143 symbols.
+
+    Requires a valid X-Admin-Secret header OR a superadmin bearer token.
     """
     async with pool.acquire() as conn:
         running = await conn.fetchrow(
@@ -151,6 +194,10 @@ async def trigger_backfill(pool=Depends(get_pool)):
             detail="An engine run is already in progress")
 
     asyncio.create_task(_run_engine_task(pool, trigger="backfill"))
+    await log_admin_action(
+        pool, action="engine.backfill", actor_label=actor["actor_label"],
+        admin_id=actor["admin_id"], target_type="engine", ip_address=actor["ip"],
+    )
     return {"status": "triggered", "message": "Backfill started in background"}
 
 
