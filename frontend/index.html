@@ -99,6 +99,10 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .main{display:flex;overflow:hidden;height:100%}
 .sidebar{width:240px;min-width:240px;background:var(--bg1);border-right:1px solid var(--border);overflow-y:auto;padding:16px 0;box-shadow: 1px 0 5px rgba(0,0,0,0.1);}
 .main.sb-hidden .sidebar{display:none}
+/* Mobile filter drawer scaffolding — inert above 680px (see media query below). */
+.sb-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:299}
+.mobile-drawer-handle{display:none}
+.mobile-drawer-footer{display:none}
 .wl-star{cursor:pointer;color:var(--t3);font-size:14px;margin-right:6px;transition:var(--tr)}
 .wl-star:hover{color:var(--amber)}
 .wl-star.on{color:var(--amber)}
@@ -115,6 +119,9 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .finput:focus{border-color:var(--blue);background:var(--bg1)}
 .fselect{width:100%;background:var(--bg0);border:1px solid var(--border);border-radius:var(--r);color:var(--t0);padding:6px 26px 6px 10px;font-size:12.5px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;cursor:pointer;transition:var(--tr)}
 .fselect:focus{border-color:var(--blue);background:var(--bg1)}
+.preset-row{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px}
+.preset-btn{font-size:11px;font-weight:600;color:var(--t1);background:var(--bg2);border:1px solid var(--border2);border-radius:999px;padding:5px 10px;transition:var(--tr);text-align:left;line-height:1.2;cursor:pointer}
+.preset-btn:hover{color:var(--blue);border-color:var(--blue);background:var(--blue-bg)}
 .apply-btn{width:100%;margin-top:12px;padding:8px;background:var(--blue-d);color:#fff;border-radius:var(--r);font-size:13px;font-weight:600;transition:var(--tr);box-shadow: 0 2px 4px rgba(0,0,0,0.2);}
 .apply-btn:hover{background:var(--blue)}
 .reset-btn{width:100%;margin-top:6px;padding:8px;background:transparent;color:var(--t2);border:1px solid var(--border);border-radius:var(--r);font-size:12px;font-weight:500;transition:var(--tr)}
@@ -138,6 +145,15 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .vtoggle button{padding:6px 14px;background:none;color:var(--t2);font-size:12.5px;font-weight:500;transition:var(--tr)}
 .vtoggle button:hover{color:var(--t0)}
 .vtoggle button.active{background:var(--bg3);color:var(--t0)}
+/* Active-filter count badge (on #btnFilters) + removable chip row */
+.fcount{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:6px;border-radius:8px;background:var(--blue-d);color:#fff;font-family:var(--font-mono);font-size:10px;font-weight:700;line-height:1}
+.fcount[hidden]{display:none}
+.fchips{display:none;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 20px;background:var(--bg0);border-bottom:1px solid var(--border)}
+.fchips-lbl{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700}
+.fchip{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--border2);border-radius:999px;padding:4px 6px 4px 12px;font-size:12px;color:var(--t1);font-weight:500}
+.fchip-x{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--bg3);color:var(--t2);font-size:11px;line-height:1;transition:var(--tr)}
+.fchip-x:hover{background:var(--red-bg);color:var(--red)}
+.fchips .link-btn{background:none;border:none;cursor:pointer}
 
 /* ── TABLE ──────────────────────────── */
 .twrap{overflow-x:auto;width:100%;position:relative}
@@ -383,7 +399,20 @@ html.light .scard{border-color:var(--border)}
 .portfolio-grid{display:grid;grid-template-columns:repeat(7,minmax(130px,1fr));gap:12px}.pf-card{background:var(--bg1);border:1px solid var(--border);border-radius:var(--r2);padding:14px}.pf-label{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.4px}.pf-value{font-family:var(--font-mono);font-weight:700;font-size:18px;margin-top:8px;color:var(--t0)}
 .pf-actions{display:flex;gap:10px;flex-wrap:wrap}.pf-form{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr)) auto;gap:10px;padding:16px}.pf-form label{font-size:11px;color:var(--t2);font-weight:700;text-transform:uppercase}.pf-field{display:flex;flex-direction:column;gap:5px}.pf-note{font-size:12px;color:var(--t2);line-height:1.5;padding:0 16px 16px}.pf-table-wrap{overflow:auto}.status-pill{display:inline-flex;border:1px solid var(--border2);border-radius:999px;padding:2px 8px;font-size:10px;font-weight:800}.status-active{color:var(--green);background:var(--green-bg)}.status-sold{color:var(--t2);background:var(--bg2)}.status-missing{color:var(--amber);background:var(--amber-bg)}.rec{font-weight:800;font-size:11px}.rec-add{color:var(--green)}.rec-hold{color:var(--t2)}.rec-trim{color:var(--amber)}.rec-exit{color:var(--red)}.mini-bars{display:flex;flex-direction:column;gap:8px;padding:16px}.mini-bar{display:grid;grid-template-columns:150px 1fr 56px;gap:10px;align-items:center;font-size:12px;color:var(--t1)}.mini-track{height:8px;background:var(--bg2);border-radius:999px;overflow:hidden}.mini-fill{height:100%;background:var(--blue)}.auth-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:16px}.hidden{display:none!important}.file-input{color:var(--t1);font-size:12px}.table-actions{display:flex;gap:6px;flex-wrap:wrap}.link-btn{color:var(--blue);font-size:12px;font-weight:700}.danger-btn{color:var(--red);font-size:12px;font-weight:700}
 @media(max-width:1200px){.portfolio-grid{grid-template-columns:repeat(3,1fr)}.pf-form{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:680px){body{overflow:auto}.app{height:auto;min-height:100vh}.topbar{height:auto;min-height:52px;flex-wrap:wrap;padding:10px}.sidebar{display:none}.portfolio-grid,.auth-grid,.pf-form{grid-template-columns:1fr}.srch-input{width:160px}.srch-input:focus{width:190px}.mini-bar{grid-template-columns:1fr}.topbar-right{width:100%;flex-wrap:wrap}}
+@media(max-width:680px){body{overflow:auto}.app{height:auto;min-height:100vh}.topbar{height:auto;min-height:52px;flex-wrap:wrap;padding:10px}.portfolio-grid,.auth-grid,.pf-form{grid-template-columns:1fr}.srch-input{width:160px}.srch-input:focus{width:190px}.mini-bar{grid-template-columns:1fr}.topbar-right{width:100%;flex-wrap:wrap}
+  /* Filter sidebar becomes a slide-up bottom-sheet drawer. Hidden off-screen until .mobile-open. */
+  .sidebar{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;min-width:0;max-height:85vh;
+    border-right:none;border-top:1px solid var(--border2);border-radius:16px 16px 0 0;
+    z-index:300;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+    box-shadow:0 -8px 34px rgba(0,0,0,.6);padding-top:0;padding-bottom:0}
+  /* The desktop "sb-hidden" toggle must not force display:none on mobile — the drawer manages itself. */
+  .main.sb-hidden .sidebar{display:block}
+  .sidebar.mobile-open{transform:translateY(0)}
+  .mobile-drawer-handle{display:block;position:sticky;top:0;background:var(--bg1);padding:10px 0 6px;z-index:2}
+  .mobile-drawer-handle::before{content:"";display:block;width:36px;height:4px;border-radius:2px;background:var(--border2);margin:0 auto}
+  .mobile-drawer-footer{display:flex;gap:10px;position:sticky;bottom:0;padding:12px 16px;background:var(--bg1);border-top:1px solid var(--border);z-index:2}
+  .mobile-drawer-footer .apply-btn,.mobile-drawer-footer .reset-btn{margin-top:0;flex:1}
+  .sb-backdrop.show{display:block}}
 
 @media(max-width:1100px){.sector-dash{grid-template-columns:1fr}.sector-kpis{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:680px){.sector-dash{padding:12px}.sector-kpis{grid-template-columns:1fr}
@@ -421,7 +450,10 @@ html.light .scard{border-color:var(--border)}
 <div class="main">
 
   <aside class="sidebar">
+    <div class="mobile-drawer-handle" aria-hidden="true"></div>
     <div class="sb-section">
+      <div class="sb-label">Quick Starts</div>
+      <div class="preset-row" id="presetRow"></div>
       <div class="sb-label">Filters</div>
       <div class="fgroup">
         <div class="frow">
@@ -497,7 +529,12 @@ html.light .scard{border-color:var(--border)}
       <div class="sb-label">Sectors</div>
       <div id="sbSecList"></div>
     </div>
+    <div class="mobile-drawer-footer">
+      <button class="reset-btn" onclick="closeMobileFilters()">Close</button>
+      <button class="apply-btn" onclick="applyFilters();closeMobileFilters()">Apply</button>
+    </div>
   </aside>
+  <div class="sb-backdrop" id="sbBackdrop" onclick="closeMobileFilters()" aria-hidden="true"></div>
 
   <div class="content-area">
 
@@ -545,8 +582,9 @@ html.light .scard{border-color:var(--border)}
           <button class="active" id="btnTable" aria-pressed="true">▤ Table</button>
           <button id="btnWatch" onclick="toggleWatchMode()" title="Show only your watchlist" aria-label="Show only your watchlist" aria-pressed="false">★ Watchlist</button>
         </div>
-        <button class="pb" id="btnFilters" onclick="toggleSidebar()" title="Show/hide the filter sidebar" aria-label="Show or hide the filter sidebar" aria-expanded="true" style="margin-left:auto">⚟ Filters</button>
+        <button class="pb" id="btnFilters" onclick="toggleSidebar()" title="Show/hide the filter sidebar" aria-label="Show or hide the filter sidebar" aria-expanded="true" style="margin-left:auto">⚟ Filters<span class="fcount" id="filterCountBadge" hidden>0</span></button>
       </div>
+      <div id="filterChips" class="fchips"></div>
       <div id="tableWrap"></div>
       <div id="pgnWrap"></div>
     </div>
@@ -789,6 +827,17 @@ async function apiFetch(path, options = {}) {
 
 function loading(id) { document.getElementById(id).innerHTML = '<div class="ld"><div class="spin"></div> Loading…</div>'; }
 
+// Friendly, retryable error state. `retryExpr` is an inline call string (e.g. 'loadScreener()')
+// re-run when the user taps Retry; omit it for a plain message. `detail` shows the raw error small.
+function errHtml(msg, retryExpr, detail) {
+  return `<div class="empty">
+    <div class="empty-icon">⚠</div>
+    <div style="font-weight:600;color:var(--t1);max-width:340px;text-align:center">${msg}</div>
+    ${detail ? `<div style="font-size:11px;color:var(--t3);max-width:340px;text-align:center;word-break:break-word">${escHtml(detail)}</div>` : ''}
+    ${retryExpr ? `<button class="pb" onclick="${retryExpr}" style="margin-top:6px">↻ Retry</button>` : ''}
+  </div>`;
+}
+
 function strHash(s) {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xfffffff; return h;
@@ -865,7 +914,7 @@ function buildQS(f, extra = {}) {
   const s = p.toString(); return s ? '?' + s : '';
 }
 
-function applyFilters() { PAGE = 1; loadScreener(); }
+function applyFilters() { PAGE = 1; updateFilterIndicators(); loadScreener(); }
 
 function resetFilters() {
   ['fT','fM','fR','fA'].forEach(id => document.getElementById(id).value = '0');
@@ -873,7 +922,74 @@ function resetFilters() {
   document.getElementById('fTrd').value = '0';
   ['fCap','fN52','fMACD','fEMA','fSec'].forEach(id => document.getElementById(id).value = '');
   document.querySelectorAll('.sec-item').forEach(x => x.classList.remove('active'));
-  PAGE = 1; loadScreener();
+  PAGE = 1; updateFilterIndicators(); loadScreener();
+}
+
+// ── ACTIVE-FILTER COUNT / CHIPS ─────────────────────────────────
+// Each filter's default value + a human label for the removable chip. `def:'0'` marks a
+// numeric field where both '' and 0 count as "not set"; other fields default to ''.
+const FILTER_DEFS = [
+  { id:'fT',    label:'Trending', def:'0', fmt:v => `Trending ≥ ${v}d` },
+  { id:'fM',    label:'Momentum', def:'0', fmt:v => `Score ≥ ${v}` },
+  { id:'fR',    label:'RSI',      def:'0', fmt:v => `RSI ≥ ${v}` },
+  { id:'fA',    label:'ADX',      def:'0', fmt:v => `ADX ≥ ${v}` },
+  { id:'fC',    label:'12d %',    def:'',  fmt:v => `12d ≥ ${v}%` },
+  { id:'fTrd',  label:'Trades',   def:'0', fmt:v => `Trades ≥ ${v}` },
+  { id:'fCap',  label:'Cap',      def:'',  fmt:v => v },
+  { id:'fN52',  label:'52W High', def:'',  fmt:v => v === 'true' ? 'Near 52W High' : 'Not near 52W High' },
+  { id:'fMACD', label:'MACD',     def:'',  fmt:v => v === 'true' ? 'MACD Bullish' : 'MACD Bearish' },
+  { id:'fEMA',  label:'EMA',      def:'',  fmt:v => ({golden_cross:'Golden Cross', above_200:'Above EMA 200', approaching:'Near EMA 200'}[v] || v) },
+  { id:'fSec',  label:'Sector',   def:'',  fmt:v => v },
+];
+function filterIsActive(def, val) {
+  if (def === '0') { const n = parseFloat(val); return isFinite(n) && n !== 0; }
+  return val !== '' && val != null;
+}
+const escHtml = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function updateFilterIndicators() {
+  const active = FILTER_DEFS.filter(d => filterIsActive(d.def, document.getElementById(d.id).value));
+  const badge = document.getElementById('filterCountBadge');
+  if (active.length) { badge.textContent = active.length; badge.hidden = false; }
+  else badge.hidden = true;
+  const wrap = document.getElementById('filterChips');
+  if (!active.length) { wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  wrap.innerHTML = '<span class="fchips-lbl">Filters</span>' + active.map(d => {
+    const v = document.getElementById(d.id).value;
+    return `<span class="fchip">${escHtml(d.fmt(v))}<button class="fchip-x" aria-label="Remove ${d.label} filter" title="Remove filter" onclick="clearFilter('${d.id}')">✕</button></span>`;
+  }).join('') + '<button class="link-btn" onclick="resetFilters()">Clear all</button>';
+}
+function clearFilter(id) {
+  const def = FILTER_DEFS.find(d => d.id === id);
+  document.getElementById(id).value = def ? def.def : '';
+  if (id === 'fSec') document.querySelectorAll('.sec-item').forEach(x => x.classList.remove('active'));
+  applyFilters();
+}
+
+// ── FILTER PRESETS ──────────────────────────────────────────────
+// Data-driven quick-starts. Each sets a fresh combination of f* inputs; add more freely.
+const FILTER_PRESETS = [
+  { label: 'Near 52W High + Golden Cross', values: { fN52: 'true', fEMA: 'golden_cross' } },
+  { label: 'RSI > 70 (Overbought)',        values: { fR: '70' } },
+  { label: 'Strong Momentum (≥70, 5d+)',   values: { fM: '70', fT: '5' } },
+];
+function renderPresets() {
+  const row = document.getElementById('presetRow');
+  if (!row) return;
+  row.innerHTML = FILTER_PRESETS.map((p, i) =>
+    `<button class="preset-btn" onclick="applyPreset(${i})" title="Apply this filter preset">${escHtml(p.label)}</button>`
+  ).join('');
+}
+function applyPreset(i) {
+  const p = FILTER_PRESETS[i];
+  if (!p) return;
+  // Start from a clean slate so a preset always produces the same result set.
+  FILTER_DEFS.forEach(d => { document.getElementById(d.id).value = d.def; });
+  document.querySelectorAll('.sec-item').forEach(x => x.classList.remove('active'));
+  Object.entries(p.values).forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.value = v; });
+  applyFilters();
+  if (isMobileView()) closeMobileFilters();
 }
 
 // ── SCREENER ─────────────────────────────────────────────────────
@@ -919,12 +1035,31 @@ function toggleWatchMode() {
   loadScreener();
 }
 
+const isMobileView = () => window.innerWidth <= 680;
+
 function toggleSidebar() {
+  // Below 680px the sidebar is a bottom-sheet drawer, not a persistent column.
+  if (isMobileView()) { toggleMobileFilters(); return; }
   const main = document.querySelector('.main');
   main.classList.toggle('sb-hidden');
   const hidden = main.classList.contains('sb-hidden');
   document.getElementById('btnFilters').setAttribute('aria-expanded', String(!hidden));
   localStorage.setItem('tp_sidebar_hidden', hidden ? '1' : '');
+}
+
+function openMobileFilters() {
+  document.querySelector('.sidebar').classList.add('mobile-open');
+  document.getElementById('sbBackdrop').classList.add('show');
+  document.getElementById('btnFilters').setAttribute('aria-expanded', 'true');
+}
+function closeMobileFilters() {
+  document.querySelector('.sidebar').classList.remove('mobile-open');
+  document.getElementById('sbBackdrop').classList.remove('show');
+  document.getElementById('btnFilters').setAttribute('aria-expanded', 'false');
+}
+function toggleMobileFilters() {
+  document.querySelector('.sidebar').classList.contains('mobile-open')
+    ? closeMobileFilters() : openMobileFilters();
 }
 
 async function loadScreener() {
@@ -944,7 +1079,7 @@ async function loadScreener() {
         tr.addEventListener('click', () => openDP(tr.dataset.sym));
       });
     } catch (e) {
-      document.getElementById('tableWrap').innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+      document.getElementById('tableWrap').innerHTML = errHtml("Couldn't load stocks — check your connection and try again.", 'loadScreener()', e.message);
     }
     return;
   }
@@ -982,7 +1117,7 @@ async function loadScreener() {
     });
     renderPagination(d.page, d.pages, d.total);
   } catch (e) {
-    document.getElementById('tableWrap').innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+    document.getElementById('tableWrap').innerHTML = errHtml("Couldn't load stocks — check your connection and try again.", 'loadScreener()', e.message);
   }
 }
 
@@ -1131,7 +1266,7 @@ async function loadSectors() {
     renderSectorDashboard(d.date || '');
     if(SELECTED_SECTOR) loadSectorDetail(SELECTED_SECTOR);
   } catch(e){
-    document.getElementById('secGrid').innerHTML=`<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+    document.getElementById('secGrid').innerHTML = errHtml("Couldn't load sectors — check your connection and try again.", 'loadSectors()', e.message);
   }
 }
 
@@ -1250,7 +1385,7 @@ async function loadSectorDetail(name) {
     const d = await apiFetch('/api/trend?' + qs.toString());
     renderSectorStocks(d.data || [], d.total || 0);
   } catch(e) {
-    panel.innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+    panel.innerHTML = errHtml("Couldn't load this sector's stocks — try again.", `loadSectorDetail('${String(name).replace(/['\\]/g, '\\$&')}')`, e.message);
   }
 }
 
@@ -1294,7 +1429,7 @@ async function loadGrouped() {
     d.data.forEach(r => { const s = normSector(r.sector)||'(No Sector)'; (GRP_DATA[s]=GRP_DATA[s]||[]).push(r); });
     document.getElementById('grpCount').textContent = d.total.toLocaleString() + ' stocks';
     renderGrouped();
-  } catch(e) { document.getElementById('grpWrap').innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`; }
+  } catch(e) { document.getElementById('grpWrap').innerHTML = errHtml("Couldn't load stocks by sector — check your connection and try again.", 'loadGrouped()', e.message); }
 }
 
 function renderGrouped() {
@@ -1454,7 +1589,7 @@ async function loadSuperStrength() {
       tr.addEventListener('click', () => openDP(tr.dataset.sym));
     });
   } catch(e) {
-    document.getElementById('ssGrid').innerHTML = `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+    document.getElementById('ssGrid').innerHTML = errHtml("Couldn't load Super Strength — check your connection and try again.", 'loadSuperStrength()', e.message);
   }
 }
 
@@ -1541,7 +1676,7 @@ async function loadCupHandleScreen() {
       tr.addEventListener('click', () => openDP(tr.dataset.sym)));
   } catch (e) {
     document.getElementById('chGrid').innerHTML =
-      `<div class="empty"><div class="empty-icon">⚠</div><div>${e.message}</div></div>`;
+      errHtml("Couldn't load Cup & Handle patterns — check your connection and try again.", 'loadCupHandleScreen()', e.message);
   }
 }
 
@@ -1613,6 +1748,7 @@ async function loadSectorList() {
         div.classList.add('active');
         document.getElementById('fSec').value = s.sector;
         switchView('screener'); applyFilters();
+        closeMobileFilters();
       });
       lst.appendChild(div);
     });
@@ -1637,7 +1773,7 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); input.focus(); input.select();
     return;
   }
-  if (e.key === 'Escape') { dd.classList.remove('open'); input.setAttribute('aria-expanded','false'); closeDP(); return; }
+  if (e.key === 'Escape') { dd.classList.remove('open'); input.setAttribute('aria-expanded','false'); closeDP(); closeMobileFilters(); return; }
   if (document.activeElement !== input || !dd.classList.contains('open')) return;
   const items = [...dd.querySelectorAll('.sr-item')];
   if (!items.length) return;
@@ -1658,6 +1794,8 @@ document.addEventListener('keydown', e => {
 if (localStorage.getItem('tp_sidebar_hidden') === '1') document.querySelector('.main').classList.add('sb-hidden');
 (async () => {
   syncRetToggle();
+  renderPresets();
+  updateFilterIndicators();
   await updateAuthUI();
   loadSectorList();
   await loadWatchlistSet();
