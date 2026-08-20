@@ -119,6 +119,9 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .finput:focus{border-color:var(--blue);background:var(--bg1)}
 .fselect{width:100%;background:var(--bg0);border:1px solid var(--border);border-radius:var(--r);color:var(--t0);padding:6px 26px 6px 10px;font-size:12.5px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748b'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;cursor:pointer;transition:var(--tr)}
 .fselect:focus{border-color:var(--blue);background:var(--bg1)}
+.preset-row{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px}
+.preset-btn{font-size:11px;font-weight:600;color:var(--t1);background:var(--bg2);border:1px solid var(--border2);border-radius:999px;padding:5px 10px;transition:var(--tr);text-align:left;line-height:1.2;cursor:pointer}
+.preset-btn:hover{color:var(--blue);border-color:var(--blue);background:var(--blue-bg)}
 .apply-btn{width:100%;margin-top:12px;padding:8px;background:var(--blue-d);color:#fff;border-radius:var(--r);font-size:13px;font-weight:600;transition:var(--tr);box-shadow: 0 2px 4px rgba(0,0,0,0.2);}
 .apply-btn:hover{background:var(--blue)}
 .reset-btn{width:100%;margin-top:6px;padding:8px;background:transparent;color:var(--t2);border:1px solid var(--border);border-radius:var(--r);font-size:12px;font-weight:500;transition:var(--tr)}
@@ -449,6 +452,8 @@ html.light .scard{border-color:var(--border)}
   <aside class="sidebar">
     <div class="mobile-drawer-handle" aria-hidden="true"></div>
     <div class="sb-section">
+      <div class="sb-label">Quick Starts</div>
+      <div class="preset-row" id="presetRow"></div>
       <div class="sb-label">Filters</div>
       <div class="fgroup">
         <div class="frow">
@@ -949,6 +954,31 @@ function clearFilter(id) {
   document.getElementById(id).value = def ? def.def : '';
   if (id === 'fSec') document.querySelectorAll('.sec-item').forEach(x => x.classList.remove('active'));
   applyFilters();
+}
+
+// ── FILTER PRESETS ──────────────────────────────────────────────
+// Data-driven quick-starts. Each sets a fresh combination of f* inputs; add more freely.
+const FILTER_PRESETS = [
+  { label: 'Near 52W High + Golden Cross', values: { fN52: 'true', fEMA: 'golden_cross' } },
+  { label: 'RSI > 70 (Overbought)',        values: { fR: '70' } },
+  { label: 'Strong Momentum (≥70, 5d+)',   values: { fM: '70', fT: '5' } },
+];
+function renderPresets() {
+  const row = document.getElementById('presetRow');
+  if (!row) return;
+  row.innerHTML = FILTER_PRESETS.map((p, i) =>
+    `<button class="preset-btn" onclick="applyPreset(${i})" title="Apply this filter preset">${escHtml(p.label)}</button>`
+  ).join('');
+}
+function applyPreset(i) {
+  const p = FILTER_PRESETS[i];
+  if (!p) return;
+  // Start from a clean slate so a preset always produces the same result set.
+  FILTER_DEFS.forEach(d => { document.getElementById(d.id).value = d.def; });
+  document.querySelectorAll('.sec-item').forEach(x => x.classList.remove('active'));
+  Object.entries(p.values).forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.value = v; });
+  applyFilters();
+  if (isMobileView()) closeMobileFilters();
 }
 
 // ── SCREENER ─────────────────────────────────────────────────────
@@ -1753,6 +1783,7 @@ document.addEventListener('keydown', e => {
 if (localStorage.getItem('tp_sidebar_hidden') === '1') document.querySelector('.main').classList.add('sb-hidden');
 (async () => {
   syncRetToggle();
+  renderPresets();
   updateFilterIndicators();
   await updateAuthUI();
   loadSectorList();
