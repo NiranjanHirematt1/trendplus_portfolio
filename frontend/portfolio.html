@@ -123,6 +123,12 @@ a{color:inherit}
 
 /* ── Layout ─────────────────────────────────────────────────────── */
 .wrap{max-width:min(1720px,96vw);margin:0 auto;padding:12px 16px 64px}
+/* Guest/demo banner */
+.demo-banner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--amber-bg);border:1px solid var(--amber);border-radius:var(--r);padding:10px 14px;margin-bottom:12px}
+.demo-badge{font-family:var(--font-mono);font-size:10.5px;font-weight:800;letter-spacing:1px;color:var(--bg0);background:var(--amber);border-radius:4px;padding:3px 8px}
+.demo-msg{font-size:12.5px;color:var(--t1)}
+.demo-cta{margin-left:auto;font-size:12px;padding:6px 12px}
+@media(max-width:680px){.demo-cta{margin-left:0;width:100%}}
 .grid-main{display:grid;grid-template-columns:1fr 340px;gap:12px;align-items:start}
 @media(max-width:1100px){.grid-main{grid-template-columns:1fr}}
 @media(min-width:1600px){.grid-main{grid-template-columns:1fr 400px;gap:16px}.grid-2{gap:16px}}
@@ -411,6 +417,9 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
           <button class="auth-choice-btn ghost" onclick="showAuthView('register')">
             <div><div class="ac-title">Register</div><div class="ac-sub">Request a new account</div></div><span class="ac-arrow">→</span>
           </button>
+          <button class="auth-choice-btn ghost" onclick="loadDemo()">
+            <div><div class="ac-title">View demo</div><div class="ac-sub">Explore the dashboard with sample data — no account needed</div></div><span class="ac-arrow">→</span>
+          </button>
         </div>
         <a href="./admin.html" class="auth-admin-link">Log in as admin</a>
       </div>
@@ -440,6 +449,13 @@ tr.rowfocus td{box-shadow:inset 0 0 0 1px var(--blue)}
 
 <!-- ── Dashboard ─────────────────────────────────────────────────── -->
 <div class="wrap hidden" id="dashboardScreen">
+
+  <!-- Persistent demo banner (guest mode only) -->
+  <div class="demo-banner hidden" id="demoBanner">
+    <span class="demo-badge">DEMO DATA</span>
+    <span class="demo-msg">You're viewing a sample portfolio — numbers are illustrative. Trades are disabled.</span>
+    <button class="btn btn-primary demo-cta" onclick="exitDemo()">Log in to use your own portfolio</button>
+  </div>
 
   <section class="panel hidden" id="passwordPanel">
     <div class="phead"><span class="ptitle">Update password</span></div>
@@ -838,6 +854,8 @@ async function changePassword() {
 // ── Load everything ───────────────────────────────────────────────
 async function loadAll() {
   if (!AUTH_TOKEN) { showScreen(); return; }
+  DEMO = false;
+  document.getElementById('demoBanner').classList.add('hidden');
   try {
     if (!CURRENT_USER) { const me = await apiFetch('/api/auth/me'); CURRENT_USER = me.user; }
     document.getElementById('acctChip').textContent = CURRENT_USER.full_name || CURRENT_USER.email;
@@ -903,6 +921,131 @@ async function loadAll() {
     toast(cleanErr(e.message));
     if (String(e.message).startsWith('401')) { setAuth(''); showScreen(); }
   }
+}
+
+// ── Guest / demo mode ─────────────────────────────────────────────
+// A self-contained sample portfolio rendered through the real render
+// functions, so a visitor can explore verdicts/alerts/table without an
+// account. No network calls, and every mutating action is blocked.
+let DEMO = false;
+const DEMO_BASE = [
+  { symbol:'TATAMOTORS', company_name:'Tata Motors Ltd', sector:'Automobile', quantity:120, avg_buy_price:640, current_price:988, today_change_pct:1.8, momentum_score:82, rs_score:88, position_score:91, days_held:210, risk_level:'Low', verdict:'ADD_MORE', verdict_label:'Add More', verdict_confidence:86, verdict_since:'3d ago', capital_flag:'creating', rel_streak_days:6, rel_streak_direction:'out',
+    verdict_reasons:[{detail:'Momentum score 82 with RS 88 — leading its sector.'},{detail:'Price extended above a rising EMA-50; trend intact.'},{detail:'Below target weight — room to add on strength.'}] },
+  { symbol:'INFY', company_name:'Infosys Ltd', sector:'IT', quantity:60, avg_buy_price:1320, current_price:1585, today_change_pct:0.6, momentum_score:71, rs_score:69, position_score:74, days_held:150, risk_level:'Moderate', verdict:'ADD_MORE', verdict_label:'Add More', verdict_confidence:72, verdict_since:'1d ago', capital_flag:'creating', rel_streak_days:3, rel_streak_direction:'out',
+    verdict_reasons:[{detail:'Reclaimed EMA-200 with improving relative strength.'},{detail:'Healthy RSI band (60–70), not overbought.'}] },
+  { symbol:'RELIANCE', company_name:'Reliance Industries Ltd', sector:'Energy', quantity:40, avg_buy_price:2450, current_price:2610, today_change_pct:-0.4, momentum_score:58, rs_score:55, position_score:60, days_held:320, risk_level:'Moderate', verdict:'HOLD', verdict_label:'Hold', verdict_confidence:64, verdict_since:'2w ago', capital_flag:null, rel_streak_days:0, rel_streak_direction:'out',
+    verdict_reasons:[{detail:'Trend neutral — ranging near EMA-50.'},{detail:'No rule breached; maintain the position.'}] },
+  { symbol:'HDFCBANK', company_name:'HDFC Bank Ltd', sector:'Financial Services', quantity:75, avg_buy_price:1490, current_price:1662, today_change_pct:0.9, momentum_score:63, rs_score:61, position_score:66, days_held:400, risk_level:'Low', verdict:'HOLD', verdict_label:'Hold', verdict_confidence:70, verdict_since:'5d ago', capital_flag:null, rel_streak_days:2, rel_streak_direction:'out',
+    verdict_reasons:[{detail:'Steady uptrend; low-volatility anchor position.'}] },
+  { symbol:'ZOMATO', company_name:'Zomato Ltd', sector:'Consumer Services', quantity:900, avg_buy_price:78, current_price:265, today_change_pct:-2.6, momentum_score:69, rs_score:74, position_score:52, days_held:260, risk_level:'Elevated', verdict:'TRIM', verdict_label:'Trim', verdict_confidence:78, verdict_since:'today', capital_flag:null, rel_streak_days:1, rel_streak_direction:'in',
+    verdict_reasons:[{detail:'Up 240% — exceeds target weight, book partial profit.'},{detail:'RSI 74 overbought; momentum cooling on the day.'}] },
+  { symbol:'YESBANK', company_name:'Yes Bank Ltd', sector:'Financial Services', quantity:2000, avg_buy_price:24, current_price:18.4, today_change_pct:-3.1, momentum_score:28, rs_score:22, position_score:19, days_held:180, risk_level:'High', verdict:'EXIT', verdict_label:'Exit', verdict_confidence:83, verdict_since:'today', capital_flag:'draining', rel_streak_days:5, rel_streak_direction:'in',
+    verdict_reasons:[{detail:'Broke below EMA-200 with weak RS (22).'},{detail:'Down 23% from cost and draining capital.'}] },
+  { symbol:'IDEA', company_name:'Vodafone Idea Ltd', sector:'Telecom', quantity:5000, avg_buy_price:12.5, current_price:7.2, today_change_pct:-4.2, momentum_score:19, rs_score:14, position_score:11, days_held:95, risk_level:'High', verdict:'EXIT', verdict_label:'Exit', verdict_confidence:90, verdict_since:'1w ago', capital_flag:'draining', rel_streak_days:9, rel_streak_direction:'in',
+    verdict_reasons:[{detail:'Sustained downtrend; RS 14 — bottom decile.'},{detail:'Down 42% from cost; cut the loss.'}] },
+];
+const DEMO_ALERTS = [
+  { severity:'critical', symbol:'IDEA',     title:'Deep drawdown',      detail:'Down 42% from cost — verdict Exit.' },
+  { severity:'critical', symbol:'YESBANK',  title:'Below EMA-200',      detail:'Trend broken with weak RS (22).' },
+  { severity:'high',     symbol:'ZOMATO',   title:'Overweight position',detail:'~12% of portfolio, above the 10% target.' },
+  { severity:'medium',   symbol:'ZOMATO',   title:'Overbought',         detail:'RSI 74 — momentum cooling.' },
+  { severity:'low',      symbol:'RELIANCE', title:'Range-bound',        detail:'Neutral trend near EMA-50.' },
+];
+
+function buildDemoState() {
+  HOLDINGS = DEMO_BASE.map((b, i) => {
+    const current_value = b.quantity * b.current_price;
+    const invested = b.quantity * b.avg_buy_price;
+    const unrealized_pnl = current_value - invested;
+    const gain_pct = invested ? (unrealized_pnl / invested * 100) : 0;
+    const today_change = current_value * (b.today_change_pct / 100);
+    return Object.assign({}, b, {
+      id: 9000 + i, status: 'ACTIVE', buy_date: '2024-02-15',
+      current_value, unrealized_pnl, gain_pct, today_change,
+    });
+  });
+  OPEN = HOLDINGS.slice();
+  const totalValue = OPEN.reduce((s, h) => s + h.current_value, 0);
+  OPEN.forEach(h => { h.portfolio_contribution = totalValue ? h.current_value / totalValue * 100 : 0; });
+  const ranked = [...OPEN].sort((a, b) => (Number(b.position_score) || -1) - (Number(a.position_score) || -1));
+  ranked.forEach((h, i) => { h.position_rank = i + 1; h.position_rank_total = ranked.length; });
+
+  const totalInvest = OPEN.reduce((s, h) => s + h.quantity * h.avg_buy_price, 0);
+  const totalUnreal = OPEN.reduce((s, h) => s + h.unrealized_pnl, 0);
+  const todayPnl = OPEN.reduce((s, h) => s + h.today_change, 0);
+  const topPos = Math.max(...OPEN.map(h => h.portfolio_contribution));
+  LAST_SUMMARY = {
+    cards: {
+      current_value: totalValue, total_investment: totalInvest,
+      unrealized_pnl: totalUnreal, realized_pnl: 0, today_pnl: todayPnl,
+      today_return_pct: (totalValue - todayPnl) ? todayPnl / (totalValue - todayPnl) * 100 : 0,
+      return_pct: totalInvest ? totalUnreal / totalInvest * 100 : 0,
+      number_of_holdings: OPEN.length,
+      winning_holdings: OPEN.filter(h => h.gain_pct > 0).length,
+      losing_holdings: OPEN.filter(h => h.gain_pct < 0).length,
+      xirr_pct: 18.4,
+    },
+    morning_brief: {
+      greeting: 'Demo portfolio — a snapshot to explore the dashboard.',
+      summary: { strong_positions: 4, watch_closely: 1, high_risk: 2 },
+      highlights: [
+        'TATAMOTORS and INFY are leading — both flagged Add More.',
+        'ZOMATO is up 240% and now overweight — the verdict says Trim.',
+        'YESBANK and IDEA broke trend and are draining capital — Exit.',
+      ],
+    },
+    risk: { top_position_pct: topPos, top_sector_pct: 34, diversification_score: 6.2, flag: 'concentrated' },
+    portfolio_health: { risk_score: 'B', portfolio_health: 'Balanced', win_rate: OPEN.length ? OPEN.filter(h => h.gain_pct > 0).length / OPEN.length * 100 : 0, diversification_score: 6.2 },
+    capital_rotation: [
+      { from: { symbol: 'YESBANK', position_score: 19 }, to: { symbol: 'TATAMOTORS', momentum_score: 82, rs_score: 88 }, reasons: ['Weak RS → sector leader', 'Redeploy draining capital'] },
+    ],
+    opportunity_queue: [
+      { rank: 1, symbol: 'DIXON', sector: 'Consumer Durables', momentum_score: 84, rs_score: 80, reason: 'Breakout with rising relative strength' },
+      { rank: 2, symbol: 'BEL',   sector: 'Capital Goods',     momentum_score: 79, rs_score: 77, reason: 'Momentum leader in a strong sector' },
+    ],
+  };
+}
+
+function loadDemo() {
+  DEMO = true;
+  PREV_HOLD = null; PREV_CARDS = null;   // no flashes on the first demo paint
+  buildDemoState();
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('dashboardScreen').classList.remove('hidden');
+  document.getElementById('demoBanner').classList.remove('hidden');
+  document.getElementById('acctChip').textContent = 'Demo mode';
+  // Login-only chrome stays hidden; the banner CTA is the way back to auth.
+  document.getElementById('logoutBtn').classList.add('hidden');
+  document.getElementById('pwBtn').classList.add('hidden');
+
+  const summary = LAST_SUMMARY;
+  renderMorningBrief(summary);
+  renderCommandBar(summary);
+  renderHoldingsTable();
+  renderAllocation();
+  renderHeatmap();
+  renderRiskPanel(summary);
+  renderDecision();
+  renderHistoryTable([]);
+  renderMissingDates([]);
+  ALERTS_DATA = DEMO_ALERTS.slice();
+  const counts = {}; SEVERITIES.forEach(s => counts[s] = ALERTS_DATA.filter(a => a.severity === s).length);
+  renderAlerts(counts);
+  if (typeof renderTodaySummary === 'function') renderTodaySummary();
+  window.scrollTo(0, 0);
+}
+function exitDemo() {
+  DEMO = false;
+  document.getElementById('dashboardScreen').classList.add('hidden');
+  document.getElementById('demoBanner').classList.add('hidden');
+  document.getElementById('acctChip').textContent = '';
+  document.getElementById('loginScreen').classList.remove('hidden');
+  showAuthView('login');
+}
+// Blocks any mutating action while in demo mode. Returns true if blocked.
+function demoBlock() {
+  if (DEMO) { toast('Log in to trade for real.'); return true; }
+  return false;
 }
 
 // ── Morning brief ─────────────────────────────────────────────────
@@ -1305,6 +1448,7 @@ function clearSelection() { SELECTED.clear(); renderHoldingsTable(); }
 function selectedRows() { return filteredSortedRows().filter(h => SELECTED.has(h.id)); }
 
 function bulkQueue(mode) {
+  if (demoBlock()) return;
   BULK_QUEUE = selectedRows().map(h => h.id);
   BULK_MODE = mode;
   advanceBulkQueue();
@@ -1316,6 +1460,7 @@ function advanceBulkQueue() {
   BULK_MODE === 'buy' ? openBuyModal(id) : openSellModal(id);
 }
 async function bulkRemove() {
+  if (demoBlock()) return;
   const rows = selectedRows();
   if (!rows.length) return;
   if (!confirm(`Delete ${rows.length} holding${rows.length > 1 ? 's' : ''} (${rows.map(h => h.symbol).join(', ')})? Ledgers are preserved.`)) return;
@@ -2180,7 +2325,7 @@ function trapModalFocus(e) {
 }
 
 // ── Add / import ──────────────────────────────────────────────────
-function openAddModal() { document.getElementById('addModal').classList.remove('hidden'); onModalOpen('addModal', '#holdSymbol'); }
+function openAddModal() { if (demoBlock()) return; document.getElementById('addModal').classList.remove('hidden'); onModalOpen('addModal', '#holdSymbol'); }
 function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); onModalClose('addModal'); }
 async function saveHolding() {
   try {
@@ -2232,6 +2377,7 @@ function renderMissingDates(rows) {
     </div>`).join('');
 }
 async function saveMissingDate(id) {
+  if (demoBlock()) return;
   const buy_date = document.getElementById('md_' + id).value;
   if (!buy_date) return toast('Select a date');
   await apiFetch(`/api/portfolio/holdings/${id}`, { method: 'PATCH', body: JSON.stringify({ buy_date, requires_confirmation: false }) });
@@ -2240,6 +2386,7 @@ async function saveMissingDate(id) {
 
 // ── Buy / Sell / Delete modals ────────────────────────────────────
 function openSellModal(id) {
+  if (demoBlock()) return;
   const h = HOLDINGS.find(x => x.id === id); if (!h) return;
   SELL_TARGET_ID = id;
   document.getElementById('sellModalTitle').textContent = `Sell position — ${h.symbol}`;
@@ -2289,6 +2436,7 @@ async function confirmSell() {
   finally { btn.disabled = false; btn.textContent = 'Confirm sale'; }
 }
 function openBuyModal(id) {
+  if (demoBlock()) return;
   const h = HOLDINGS.find(x => x.id === id); if (!h) return;
   BUY_TARGET_ID = id;
   document.getElementById('buyModalTitle').textContent = `Buy more — ${h.symbol}`;
@@ -2334,6 +2482,7 @@ async function confirmBuy() {
   } catch (e) { toast(cleanErr(e.message)); }
 }
 function openDeleteModal(id) {
+  if (demoBlock()) return;
   const h = HOLDINGS.find(x => x.id === id); if (!h) return;
   DELETE_TARGET_ID = id;
   document.getElementById('deleteHoldingSym').textContent = h.symbol;
