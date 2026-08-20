@@ -62,3 +62,8 @@ class ChangePasswordRequest(BaseModel):
 class AdminLoginRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=64)
     password: str = Field(..., min_length=1, max_length=128)
+    totp_code: str | None = Field(default=None, min_length=6, max_length=6)
+
+
+class TotpVerifyRequest(BaseModel):
+    code: str = Field(..., min_length=6, max_length=6)

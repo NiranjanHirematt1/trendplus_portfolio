@@ -42,6 +42,29 @@ def create_token(subject: str, token_type: str = "access", expires_minutes: int 
     return body.decode() + "." + base64.urlsafe_b64encode(sig).rstrip(b"=").decode()
 
 
+def generate_totp_secret() -> str:
+    """New base32 TOTP shared secret."""
+    import pyotp
+    return pyotp.random_base32()
+
+
+def totp_provisioning_uri(secret: str, username: str, issuer: str = "TrendPlus Admin") -> str:
+    """otpauth:// URI for QR-code enrollment in an authenticator app."""
+    import pyotp
+    return pyotp.TOTP(secret).provisioning_uri(name=username, issuer_name=issuer)
+
+
+def verify_totp(secret: str, code: str) -> bool:
+    """Validate a 6-digit TOTP code (±1 step for clock skew)."""
+    if not secret or not code:
+        return False
+    import pyotp
+    try:
+        return pyotp.TOTP(secret).verify(str(code).strip(), valid_window=1)
+    except Exception:
+        return False
+
+
 def decode_token(token: str, expected_type: str | None = None) -> dict[str, Any] | None:
     try:
         body, sig = token.split(".", 1)

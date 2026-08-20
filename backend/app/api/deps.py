@@ -1,8 +1,16 @@
 import uuid
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 from app.core.database import get_pool
 from app.services.security import decode_token
+
+
+def client_ip(request: Request) -> str:
+    """Best-effort client IP, honouring a single X-Forwarded-For hop (Render/Vercel proxy)."""
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "-"
 
 
 async def current_user(authorization: str | None = Header(None), pool=Depends(get_pool)):
@@ -42,7 +50,36 @@ async def current_admin(authorization: str | None = Header(None), pool=Depends(g
     except (KeyError, ValueError, TypeError):
         raise HTTPException(401, "Invalid admin session")
     async with pool.acquire() as conn:
-        admin = await conn.fetchrow("select id, username, created_at from admins where id = $1", admin_id)
+        admin = await conn.fetchrow(
+            "select id, username, role, totp_enabled, created_at from admins where id = $1",
+            admin_id,
+        )
     if not admin:
         raise HTTPException(401, "Admin not found")
     return dict(admin)
+
+
+async def decode_token_admin_optional(authorization: str | None, pool) -> dict | None:
+    """Resolve an admin from a bearer token without raising. Returns None if absent/invalid.
+    Used where admin identity is optional (e.g. engine endpoints that also accept a shared secret)."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    payload = decode_token(authorization.split(" ", 1)[1], expected_type="admin")
+    if not payload:
+        return None
+    try:
+        admin_id = int(payload["sub"])
+    except (KeyError, ValueError, TypeError):
+        return None
+    async with pool.acquire() as conn:
+        admin = await conn.fetchrow(
+            "select id, username, role, totp_enabled from admins where id = $1", admin_id,
+        )
+    return dict(admin) if admin else None
+
+
+async def require_superadmin(admin=Depends(current_admin)):
+    """Gate for the most destructive actions (delete user, reset password, run engine)."""
+    if admin.get("role") != "superadmin":
+        raise HTTPException(403, "This action requires a superadmin account")
+    return admin

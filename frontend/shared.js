@@ -348,10 +348,11 @@ window.TPDP = (function () {
 .dp-close:hover{color:var(--t0);border-color:var(--t2)}
 .dp-ownstrip{display:flex;gap:14px;font:11px var(--font-mono);color:var(--t2);margin-top:6px;flex-wrap:wrap}
 .dp-ownstrip b{color:var(--t0)}
-.dp-tabs{display:flex;gap:2px;margin-top:10px;overflow-x:auto}
-.dp-tabs button{font-size:11px;font-weight:600;color:var(--t2);padding:7px 11px;border-bottom:2px solid transparent;white-space:nowrap;transition:color .12s}
-.dp-tabs button:hover{color:var(--t0)}
-.dp-tabs button.active{color:var(--t0);border-bottom-color:var(--blue)}
+.dp-tabs{display:flex;gap:4px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.dp-tabs::-webkit-scrollbar{height:0;display:none}
+.dp-tabs button{flex:1 1 0;min-width:max-content;text-align:center;font-size:11px;font-weight:600;color:var(--t2);padding:8px 8px;border-radius:7px 7px 0 0;white-space:nowrap;transition:color .12s,background .12s;border-bottom:2px solid transparent}
+.dp-tabs button:hover{color:var(--t0);background:var(--bg2)}
+.dp-tabs button.active{color:#0c0b0a;background:var(--blue);font-weight:700;border-bottom-color:var(--blue-d)}
 .dp-body{padding:14px 18px;flex:1}
 .dp-sec-ttl{font-size:10.5px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:1px;margin:16px 0 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 .dp-sec-ttl:first-child{margin-top:0}

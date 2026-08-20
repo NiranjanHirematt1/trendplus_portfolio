@@ -158,7 +158,7 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 /* ── TABLE ──────────────────────────── */
 .twrap{overflow-x:auto;width:100%;position:relative}
 table{border-collapse:collapse;font-size:12.5px;width:100%;}
-thead th{background:var(--bg2);color:var(--t2);font-weight:600;padding:10px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10;cursor:pointer;user-select:none;font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px;}
+thead th{background:var(--bg2);color:var(--t2);font-weight:600;padding:10px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border2);position:sticky;top:var(--toolbar-h,53px);z-index:10;cursor:pointer;user-select:none;font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px;}
 thead th:first-child{text-align:left;position:sticky;left:0;z-index:20;background:var(--bg2);min-width:130px}
 thead th:nth-child(2){text-align:left;position:sticky;left:130px;z-index:20;background:var(--bg2);box-shadow:4px 0 12px rgba(0,0,0,.2);min-width:180px}
 tbody td:first-child{position:sticky;left:0;z-index:5;background:var(--bg1);min-width:130px}
@@ -857,6 +857,7 @@ function switchView(v) {
   if (v === 'grouped') loadGrouped();
   if (v === 'super')   loadSuperStrength();
   if (v === 'cuphandle') loadCupHandleScreen();
+  syncToolbarHeight();
 }
 
 function onSortChange() {
@@ -1790,9 +1791,20 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// Keep the sticky column-header row (thead th) docked directly below the sticky
+// toolbar instead of hidden behind it. The toolbar wraps (flex-wrap) at narrow
+// widths, so its height is measured live and exposed as --toolbar-h.
+function syncToolbarHeight() {
+  const active = document.querySelector('.view.active .toolbar') || document.querySelector('.toolbar');
+  if (!active) return;
+  document.documentElement.style.setProperty('--toolbar-h', active.offsetHeight + 'px');
+}
+window.addEventListener('resize', syncToolbarHeight);
+
 // ── INIT ─────────────────────────────────────────────────────────
 if (localStorage.getItem('tp_sidebar_hidden') === '1') document.querySelector('.main').classList.add('sb-hidden');
 (async () => {
+  syncToolbarHeight();
   syncRetToggle();
   renderPresets();
   updateFilterIndicators();
