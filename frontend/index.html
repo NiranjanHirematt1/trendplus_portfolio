@@ -142,6 +142,15 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .vtoggle button{padding:6px 14px;background:none;color:var(--t2);font-size:12.5px;font-weight:500;transition:var(--tr)}
 .vtoggle button:hover{color:var(--t0)}
 .vtoggle button.active{background:var(--bg3);color:var(--t0)}
+/* Active-filter count badge (on #btnFilters) + removable chip row */
+.fcount{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;margin-left:6px;border-radius:8px;background:var(--blue-d);color:#fff;font-family:var(--font-mono);font-size:10px;font-weight:700;line-height:1}
+.fcount[hidden]{display:none}
+.fchips{display:none;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 20px;background:var(--bg0);border-bottom:1px solid var(--border)}
+.fchips-lbl{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:0.5px;font-weight:700}
+.fchip{display:inline-flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--border2);border-radius:999px;padding:4px 6px 4px 12px;font-size:12px;color:var(--t1);font-weight:500}
+.fchip-x{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--bg3);color:var(--t2);font-size:11px;line-height:1;transition:var(--tr)}
+.fchip-x:hover{background:var(--red-bg);color:var(--red)}
+.fchips .link-btn{background:none;border:none;cursor:pointer}
 
 /* ── TABLE ──────────────────────────── */
 .twrap{overflow-x:auto;width:100%;position:relative}
@@ -568,8 +577,9 @@ html.light .scard{border-color:var(--border)}
           <button class="active" id="btnTable" aria-pressed="true">▤ Table</button>
           <button id="btnWatch" onclick="toggleWatchMode()" title="Show only your watchlist" aria-label="Show only your watchlist" aria-pressed="false">★ Watchlist</button>
         </div>
-        <button class="pb" id="btnFilters" onclick="toggleSidebar()" title="Show/hide the filter sidebar" aria-label="Show or hide the filter sidebar" aria-expanded="true" style="margin-left:auto">⚟ Filters</button>
+        <button class="pb" id="btnFilters" onclick="toggleSidebar()" title="Show/hide the filter sidebar" aria-label="Show or hide the filter sidebar" aria-expanded="true" style="margin-left:auto">⚟ Filters<span class="fcount" id="filterCountBadge" hidden>0</span></button>
       </div>
+      <div id="filterChips" class="fchips"></div>
       <div id="tableWrap"></div>
       <div id="pgnWrap"></div>
     </div>
@@ -888,7 +898,7 @@ function buildQS(f, extra = {}) {
   const s = p.toString(); return s ? '?' + s : '';
 }
 
-function applyFilters() { PAGE = 1; loadScreener(); }
+function applyFilters() { PAGE = 1; updateFilterIndicators(); loadScreener(); }
 
 function resetFilters() {
   ['fT','fM','fR','fA'].forEach(id => document.getElementById(id).value = '0');
@@ -896,7 +906,49 @@ function resetFilters() {
   document.getElementById('fTrd').value = '0';
   ['fCap','fN52','fMACD','fEMA','fSec'].forEach(id => document.getElementById(id).value = '');
   document.querySelectorAll('.sec-item').forEach(x => x.classList.remove('active'));
-  PAGE = 1; loadScreener();
+  PAGE = 1; updateFilterIndicators(); loadScreener();
+}
+
+// ── ACTIVE-FILTER COUNT / CHIPS ─────────────────────────────────
+// Each filter's default value + a human label for the removable chip. `def:'0'` marks a
+// numeric field where both '' and 0 count as "not set"; other fields default to ''.
+const FILTER_DEFS = [
+  { id:'fT',    label:'Trending', def:'0', fmt:v => `Trending ≥ ${v}d` },
+  { id:'fM',    label:'Momentum', def:'0', fmt:v => `Score ≥ ${v}` },
+  { id:'fR',    label:'RSI',      def:'0', fmt:v => `RSI ≥ ${v}` },
+  { id:'fA',    label:'ADX',      def:'0', fmt:v => `ADX ≥ ${v}` },
+  { id:'fC',    label:'12d %',    def:'',  fmt:v => `12d ≥ ${v}%` },
+  { id:'fTrd',  label:'Trades',   def:'0', fmt:v => `Trades ≥ ${v}` },
+  { id:'fCap',  label:'Cap',      def:'',  fmt:v => v },
+  { id:'fN52',  label:'52W High', def:'',  fmt:v => v === 'true' ? 'Near 52W High' : 'Not near 52W High' },
+  { id:'fMACD', label:'MACD',     def:'',  fmt:v => v === 'true' ? 'MACD Bullish' : 'MACD Bearish' },
+  { id:'fEMA',  label:'EMA',      def:'',  fmt:v => ({golden_cross:'Golden Cross', above_200:'Above EMA 200', approaching:'Near EMA 200'}[v] || v) },
+  { id:'fSec',  label:'Sector',   def:'',  fmt:v => v },
+];
+function filterIsActive(def, val) {
+  if (def === '0') { const n = parseFloat(val); return isFinite(n) && n !== 0; }
+  return val !== '' && val != null;
+}
+const escHtml = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function updateFilterIndicators() {
+  const active = FILTER_DEFS.filter(d => filterIsActive(d.def, document.getElementById(d.id).value));
+  const badge = document.getElementById('filterCountBadge');
+  if (active.length) { badge.textContent = active.length; badge.hidden = false; }
+  else badge.hidden = true;
+  const wrap = document.getElementById('filterChips');
+  if (!active.length) { wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
+  wrap.style.display = 'flex';
+  wrap.innerHTML = '<span class="fchips-lbl">Filters</span>' + active.map(d => {
+    const v = document.getElementById(d.id).value;
+    return `<span class="fchip">${escHtml(d.fmt(v))}<button class="fchip-x" aria-label="Remove ${d.label} filter" title="Remove filter" onclick="clearFilter('${d.id}')">✕</button></span>`;
+  }).join('') + '<button class="link-btn" onclick="resetFilters()">Clear all</button>';
+}
+function clearFilter(id) {
+  const def = FILTER_DEFS.find(d => d.id === id);
+  document.getElementById(id).value = def ? def.def : '';
+  if (id === 'fSec') document.querySelectorAll('.sec-item').forEach(x => x.classList.remove('active'));
+  applyFilters();
 }
 
 // ── SCREENER ─────────────────────────────────────────────────────
@@ -1701,6 +1753,7 @@ document.addEventListener('keydown', e => {
 if (localStorage.getItem('tp_sidebar_hidden') === '1') document.querySelector('.main').classList.add('sb-hidden');
 (async () => {
   syncRetToggle();
+  updateFilterIndicators();
   await updateAuthUI();
   loadSectorList();
   await loadWatchlistSet();
