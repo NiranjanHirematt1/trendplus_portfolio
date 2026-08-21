@@ -159,14 +159,29 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
 .twrap{overflow-x:auto;width:100%;position:relative}
 table{border-collapse:collapse;font-size:12.5px;width:100%;}
 thead th{background:var(--bg2);color:var(--t2);font-weight:600;padding:10px 12px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10;cursor:pointer;user-select:none;font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px;}
-/* Only the main Screener table offsets its sticky header below the sticky toolbar.
-   Other tables (sectors, grouped, super strength, cup & handle) keep the original top:0. */
-.tw-main thead th{top:var(--toolbar-h,53px)}
+/* Root cause of the sticky-header bug: .twrap's overflow-x:auto forces overflow-y's
+   COMPUTED value to auto too (CSS Overflow spec: if one axis is non-visible, visible on
+   the other axis is realized as auto). That silently makes .twrap its own scroll
+   container, which breaks position:sticky for the thead th relative to the page's real
+   scroller (.content-area) — the header doesn't stick, it just scrolls away with the
+   rows. No amount of `top` offset fixes that, because sticky was never engaging at all.
+   Confirmed empirically with a headless-browser scroll test before/after this change.
+   Fix (main Screener table only): give .tw-main a bounded height and let IT own both
+   scroll axes via flex sizing below, so thead th's existing `position:sticky;top:0` is
+   sticky relative to .tw-main itself — no toolbar-height measurement hack needed.
+   The other four tables (sectors, grouped, super strength, cup & handle) are untouched. */
 thead th:first-child{text-align:left;position:sticky;left:0;z-index:20;background:var(--bg2);min-width:130px}
 thead th:nth-child(2){text-align:left;position:sticky;left:130px;z-index:20;background:var(--bg2);box-shadow:4px 0 12px rgba(0,0,0,.2);min-width:180px}
 tbody td:first-child{position:sticky;left:0;z-index:5;background:var(--bg1);min-width:130px}
 tbody td:nth-child(2){position:sticky;left:130px;z-index:5;background:var(--bg1);box-shadow:4px 0 12px rgba(0,0,0,.2);min-width:180px}
 tbody tr:hover td:first-child, tbody tr:hover td:nth-child(2){background:var(--bg2)}
+/* Scoped to the Screener view only — makes #tableWrap/.tw-main fill exactly the space
+   left after the toolbar/filter-chips/pagination, so .tw-main can own its own scroll
+   (both axes) and its sticky thead th works. #view-screener.active (id+class) beats the
+   generic .view.active{display:block} rule, so no other view's layout is touched. */
+#view-screener.active{display:flex;flex-direction:column;height:100%}
+#view-screener #tableWrap{flex:1;min-height:0;display:flex;flex-direction:column}
+#view-screener .tw-main{flex:1;min-height:0;overflow:auto}
 thead th:hover{color:var(--t0);background:var(--bg3)}
 thead th.sorted{color:var(--blue)}
 thead th[onclick]{cursor:pointer;user-select:none}
@@ -860,7 +875,6 @@ function switchView(v) {
   if (v === 'grouped') loadGrouped();
   if (v === 'super')   loadSuperStrength();
   if (v === 'cuphandle') loadCupHandleScreen();
-  syncToolbarHeight();
 }
 
 function onSortChange() {
@@ -1795,20 +1809,9 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// Keep the sticky column-header row (thead th) docked directly below the sticky
-// toolbar instead of hidden behind it. The toolbar wraps (flex-wrap) at narrow
-// widths, so its height is measured live and exposed as --toolbar-h.
-function syncToolbarHeight() {
-  const active = document.querySelector('.view.active .toolbar') || document.querySelector('.toolbar');
-  if (!active) return;
-  document.documentElement.style.setProperty('--toolbar-h', active.offsetHeight + 'px');
-}
-window.addEventListener('resize', syncToolbarHeight);
-
 // ── INIT ─────────────────────────────────────────────────────────
 if (localStorage.getItem('tp_sidebar_hidden') === '1') document.querySelector('.main').classList.add('sb-hidden');
 (async () => {
-  syncToolbarHeight();
   syncRetToggle();
   renderPresets();
   updateFilterIndicators();
