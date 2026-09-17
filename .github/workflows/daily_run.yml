@@ -73,7 +73,7 @@ jobs:
           FORCE_RUN:     ${{ inputs.force && '1' || '' }}
           NSE_ATTEMPTS:  '4'
           NSE_WAIT_SECS: '90'
-          CATCHUP_DAYS:  '5'
+          CATCHUP_DAYS:  '0'
         run: python scripts/run_engine_cli.py
 
       # Safety net only. run_engine_cli.py already records its own errors in
