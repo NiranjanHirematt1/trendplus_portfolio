@@ -70,8 +70,8 @@ def check(name, cond, extra=""):
 # 1 — weekend short-circuits with no HTTP at all
 fc = patch_client({})
 r = nb.fetch_bhav(SAT)
-check("weekend -> holiday, zero requests",
-      r.outcome == "holiday" and not fc.gets and not fc.heads, f"{r.outcome} gets={fc.gets}")
+check("weekend -> no_file, zero requests",
+      r.outcome == "no_file" and not fc.gets and not fc.heads, f"{r.outcome} gets={fc.gets}")
 
 # 2 — happy path
 fc = patch_client({"sec_bhavdata_full_14082026": FakeResp(200, BIG)})
@@ -79,20 +79,10 @@ r = nb.fetch_bhav(FRI, attempts=1)
 check("file present -> ok/full",
       r.outcome == "ok" and r.source == "full" and r.csv_bytes == BIG, r.outcome)
 
-# 3 — 404 today + canary readable -> HOLIDAY
-fc = patch_client({"sec_bhavdata_full_17082026": FakeResp(404),
-                   "sec_bhavdata_full_14082026": FakeResp(200, BIG)})
-r = nb.fetch_bhav(MON, attempts=1)
-check("404 + healthy canary -> holiday",
-      r.outcome == "holiday" and "canary" in r.reason, f"{r.outcome} {r.reason}")
-
-# 4 — 404 everywhere -> BLOCKED (must raise, never 'holiday')
+# 3 — 404 -> no_file (never an error, never a holiday stamp)
 fc = patch_client({})
-try:
-    nb.fetch_bhav(MON, attempts=1)
-    check("404 everywhere -> BhavBlocked", False, "no exception raised")
-except nb.BhavBlocked as e:
-    check("404 everywhere -> BhavBlocked", "NOT a market holiday" in str(e), str(e)[:80])
+r = nb.fetch_bhav(MON, attempts=1)
+check("404 -> no_file", r.outcome == "no_file", r.outcome)
 
 # 5 — 403 -> BLOCKED immediately, not a holiday
 fc = patch_client({"sec_bhavdata_full": FakeResp(403, b"denied")})
@@ -110,7 +100,7 @@ try:
 except nb.BhavBlocked as e:
     check("HTML 200 challenge -> BhavBlocked", "HTML page" in str(e), str(e)[:80])
 
-# 7 — tiny 200 body -> BLOCKED (old code called this a holiday)
+# 7 — tiny 200 body -> BLOCKED
 fc = patch_client({"sec_bhavdata_full": FakeResp(200, b"SYMBOL,SERIES\n")})
 try:
     nb.fetch_bhav(MON, attempts=1)
@@ -128,41 +118,8 @@ nb.datetime.datetime = MorningDT
 fc = patch_client({})
 r = nb.fetch_bhav(MON, attempts=1)
 nb.datetime.datetime = real_dt
-check("today before 17:00 IST -> too_early (not holiday)",
+check("today before 17:00 IST -> too_early",
       r.outcome == "too_early" and not fc.gets, f"{r.outcome} gets={len(fc.gets)}")
-
-# 8b — today, after 17:00 but before the holiday verdict hour, file missing:
-#      must NOT be called a holiday, and must not even probe the canary.
-class EveningDT(real_dt):
-    @classmethod
-    def now(cls, tz=None):
-        return real_dt(2026, 8, 17, 18, 20, tzinfo=nb.IST)
-nb.datetime.datetime = EveningDT
-fc = patch_client({})
-r = nb.fetch_bhav(MON, attempts=1)
-nb.datetime.datetime = real_dt
-check("today 18:20, file missing -> not_published, no canary probe",
-      r.outcome == "not_published" and not fc.heads,
-      f"{r.outcome} heads={len(fc.heads)}")
-
-# 8c — same missing file, but past the verdict hour: now a holiday call is fair
-class LateDT(real_dt):
-    @classmethod
-    def now(cls, tz=None):
-        return real_dt(2026, 8, 17, 21, 5, tzinfo=nb.IST)
-nb.datetime.datetime = LateDT
-fc = patch_client({"sec_bhavdata_full_14082026": FakeResp(200, BIG)})
-r = nb.fetch_bhav(MON, attempts=1)
-nb.datetime.datetime = real_dt
-check("today 21:05, file missing + healthy canary -> holiday",
-      r.outcome == "holiday", r.outcome)
-
-# 8d — a PAST date is judged immediately, no cutoff wait
-fc = patch_client({"sec_bhavdata_full_17082026": FakeResp(404),
-                   "sec_bhavdata_full_14082026": FakeResp(200, BIG)})
-r = nb.fetch_bhav(MON, attempts=1)
-check("past date -> holiday verdict with no cutoff wait",
-      r.outcome == "holiday", r.outcome)
 
 # 9 — UDiFF fallback only when opted in
 zbuf = io.BytesIO()
@@ -207,13 +164,38 @@ check("PREVCLOSE parsed from file",
 check("values de-padded", df["SERIES"].tolist() == ["EQ", "EQ", "BE"])
 check("liquidity threshold matches backfill", nb.MIN_TOTAL_TRADES == 3000)
 
-# date mismatch must be fatal
+# normalise_bhav safety net: caller date != file date is still fatal
 bad = "\n".join([HEADER, row("RELIANCE", "EQ", 1, 2, 0.5, 1.5, 9000, date="13-Aug-2026")]) + "\n"
 try:
     nb.normalise_bhav(bad.encode(), FRI, "full")
-    check("date mismatch is fatal", False, "no exception")
+    check("normalise date mismatch is fatal", False, "no exception")
 except RuntimeError as e:
-    check("date mismatch is fatal", "Date mismatch" in str(e), str(e)[:60])
+    check("normalise date mismatch is fatal", "Date mismatch" in str(e), str(e)[:60])
+
+# ── parse_bhav_date: the file's own date decides what gets loaded ────
+check("parse_bhav_date reads DATE1", nb.parse_bhav_date(csv.encode()) == FRI)
+
+# The 14-Sep-2026 case: holiday URL, previous session's data inside
+holiday_csv = "\n".join([HEADER,
+    row("RELIANCE", "EQ", 1, 2, 0.5, 1.5, 9000, date="11-Sep-2026"),
+    row("TCS",      "EQ", 1, 2, 0.5, 1.5, 9000, date="11-Sep-2026")]) + "\n"
+check("holiday file -> previous session date",
+      nb.parse_bhav_date(holiday_csv.encode()) == datetime.date(2026, 9, 11))
+
+check("UDiFF ISO date parsed",
+      nb.parse_bhav_date(b"TradDt,TckrSymb\n2026-09-11,RELIANCE\n", "udiff")
+      == datetime.date(2026, 9, 11))
+
+for label, body in [
+    ("no date column -> error", b"SYMBOL,SERIES\nRELIANCE,EQ\n"),
+    ("garbage date -> error",   b"SYMBOL, DATE1\nRELIANCE, not-a-date\n"),
+    ("two dates -> error",      b"SYMBOL, DATE1\nA, 11-Sep-2026\nB, 14-Sep-2026\n"),
+]:
+    try:
+        nb.parse_bhav_date(body)
+        check(label, False, "no exception")
+    except RuntimeError:
+        check(label, True)
 
 # missing trade-count column must refuse, not silently load
 noc = HEADER.replace(" NO_OF_TRADES,", "")
@@ -225,16 +207,6 @@ try:
     check("missing trade-count refuses to load", False, "no exception")
 except RuntimeError as e:
     check("missing trade-count refuses to load", "liquidity filter" in str(e), str(e)[:60])
-
-# ── run_engine_cli helpers ───────────────────────────────────────────
-# Only exercise the pure helper; avoid importing the DB-dependent module body.
-src = (HERE / "run_engine_cli.py").read_text()
-ns = {"datetime": datetime}
-exec(compile(src[src.index("def _weekdays_back"):src.index("async def run(")], "x", "exec"), ns)
-wb = ns["_weekdays_back"](MON, 5)                       # Mon 17 Aug back 5 weekdays
-expect = [datetime.date(2026,8,11), datetime.date(2026,8,12), datetime.date(2026,8,13),
-          FRI, MON]
-check("_weekdays_back skips weekends, oldest first", wb == expect, str(wb))
 
 # ── summary ──────────────────────────────────────────────────────────
 bad_n = sum(1 for _, ok, _ in results if not ok)

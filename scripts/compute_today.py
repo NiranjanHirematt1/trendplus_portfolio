@@ -45,7 +45,10 @@ load_dotenv(BACKEND / ".env")
 import asyncpg
 import numpy as np
 import pandas as pd
-from backend.app.core.sector_mapping import normalize_sector_name
+from backend.app.core.sector_mapping import (
+    normalize_sector_name,
+    normalize_cap_category,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -681,7 +684,7 @@ async def compute_and_upsert_today(
              str(r.get("Company Name", r["Symbol"])),
              str(r.get("ISIN", "")),
              str(r.get("Sector", "")),
-             str(r.get("CapCategory", "")))
+             normalize_cap_category(r.get("CapCategory")))
             for _, r in result.iterrows()
         ]
         await conn.executemany(

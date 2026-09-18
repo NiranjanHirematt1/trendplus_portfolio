@@ -26,24 +26,25 @@ It is the same host scripts/refresh_master_data.py already uses successfully.
 It is also the *better* file: it carries OPEN_PRICE and PREV_CLOSE, which the
 old CI path did not have (it stored close_price as a stand-in for open_price).
 
-Holiday vs. blocked — the canary
-────────────────────────────────
-A missing file looks identical whether today is Diwali or whether NSE has
-started refusing our IP.  Guessing wrong is expensive in both directions:
-call a block a "holiday" and you silently lose a day of data; call a holiday
-a "block" and you get a red build every festival.
+Holidays — trust the date INSIDE the file
+─────────────────────────────────────────
+On some holidays NSE does not 404 the requested URL; it serves the PREVIOUS
+trading day's file under today's name (e.g. 14-Sep-2026 was a holiday and
+sec_bhavdata_full_14092026.csv contained DATE1 = 11-Sep-2026).  So the URL
+date means nothing.  The caller must read the file's own date with
+parse_bhav_date() and only load it if that date is newer than what the
+database already has.  A holiday then simply looks like "nothing new".
 
-So when today's file is missing we fetch a *canary*: the most recent earlier
-weekday.  That file definitely exists.
-
-    canary OK   → the CDN is reachable, today genuinely has no data → HOLIDAY
-    canary FAILS → we cannot read the CDN at all                    → BLOCKED
-
-BLOCKED raises, which fails the build loudly.  HOLIDAY exits cleanly.
+Blocked vs. absent
+──────────────────
+404 = file not there (holiday or not published yet) → outcome "no_file".
+403/429/HTML challenge/tiny body = NSE refusing us → raises BhavBlocked,
+which fails the build loudly.  Never confuse the two.
 
 Public API
 ──────────
     fetch_bhav(trade_date)     -> BhavFetch      (raises BhavBlocked)
+    parse_bhav_date(csv_bytes, source) -> datetime.date   (date printed in the file)
     normalise_bhav(csv_bytes, trade_date, source) -> pandas.DataFrame
     ist_today()                -> datetime.date
 """
@@ -107,11 +108,6 @@ MIN_PLAUSIBLE_BYTES = 50_000
 # Don't even hit the CDN for *today* before this hour — the file cannot exist.
 EARLIEST_PUBLISH_HOUR_IST = 17
 
-# Don't declare *today* a market holiday before this hour, however convincing
-# the evidence looks. A missing file at 17:30 means "NSE is still working",
-# not "Diwali". Past dates are judged immediately — they've had all evening.
-HOLIDAY_VERDICT_HOUR_IST = 20
-
 
 # ─────────────────────────────────────────────────────────────────────
 #  Errors / result types
@@ -123,7 +119,7 @@ class BhavBlocked(RuntimeError):
 
 @dataclass
 class BhavFetch:
-    outcome: str                  # "ok" | "holiday" | "too_early" | "not_published"
+    outcome: str                  # "ok" | "no_file" | "too_early"
     trade_date: datetime.date
     csv_bytes: bytes | None = None
     source: str = ""              # "full" | "udiff"
@@ -146,13 +142,6 @@ def ist_today() -> datetime.date:
 
 def _is_weekend(d: datetime.date) -> bool:
     return d.weekday() >= 5          # 5 = Sat, 6 = Sun
-
-
-def _prev_weekday(d: datetime.date) -> datetime.date:
-    d -= datetime.timedelta(days=1)
-    while _is_weekend(d):
-        d -= datetime.timedelta(days=1)
-    return d
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -206,22 +195,6 @@ def _get(client: httpx.Client, url: str) -> bytes | None:
     return body
 
 
-def _exists(client: httpx.Client, url: str) -> bool:
-    """Cheap existence probe for the canary — HEAD, or a 1 KB ranged GET."""
-    try:
-        r = client.head(url)
-        if r.status_code == 405:                      # HEAD not allowed
-            r = client.get(url, headers={"Range": "bytes=0-1023"})
-    except httpx.HTTPError as e:
-        raise BhavBlocked(f"network error probing {url}: {e}") from e
-
-    if r.status_code == 404:
-        return False
-    if r.status_code in (200, 206):
-        return True
-    raise BhavBlocked(f"HTTP {r.status_code} probing {url}")
-
-
 def _unzip_single_csv(body: bytes) -> bytes:
     with zipfile.ZipFile(io.BytesIO(body)) as zf:
         names = [n for n in zf.namelist() if n.upper().endswith(".CSV")]
@@ -249,43 +222,29 @@ def _try_date(client: httpx.Client, d: datetime.date) -> tuple[bytes, str] | Non
     return None
 
 
-def _canary_reachable(client: httpx.Client, before: datetime.date) -> datetime.date | None:
-    """Find a recent weekday whose bhavcopy exists. Proves the CDN is readable."""
-    d = _prev_weekday(before)
-    for _ in range(10):
-        url = FULL_BHAV_URL.format(ddmmyyyy=d.strftime("%d%m%Y"))
-        if _exists(client, url):
-            return d
-        d = _prev_weekday(d)
-    return None
-
-
 def fetch_bhav(
     trade_date: datetime.date,
     attempts: int = 4,
     wait_secs: int = 90,
 ) -> BhavFetch:
-    """Fetch the bhavcopy for trade_date.
+    """Download the bhavcopy published under trade_date's URL.
 
-    Retries while the file is merely late (NSE publishes ~18:00 IST some days,
-    later on volatile ones).  Then uses the canary to decide holiday vs blocked.
+    "ok" does NOT mean the file holds trade_date's prices — on a holiday NSE
+    may serve the previous session's file.  Always check parse_bhav_date().
 
-    Raises BhavBlocked if the CDN is unreadable — the caller must fail the job.
+    Outcomes: "ok" | "no_file" (404 after all attempts, or a weekend)
+              | "too_early" (today, before NSE can have published).
+    Raises BhavBlocked if NSE is refusing us — the caller must fail the job.
     """
     if _is_weekend(trade_date):
         return BhavFetch(
-            outcome="holiday",
+            outcome="no_file",
             trade_date=trade_date,
             reason=f"{trade_date} is a {trade_date:%A} — market closed",
         )
 
-    # Asking for today before the file can possibly exist is not a holiday.
-    # Without this guard a morning catch-up run would fetch nothing, see a
-    # healthy canary, and stamp today as a market holiday hours before the
-    # market has even closed.
     now_ist = datetime.datetime.now(IST)
-    is_today = trade_date == now_ist.date()
-    if is_today and now_ist.hour < EARLIEST_PUBLISH_HOUR_IST:
+    if trade_date == now_ist.date() and now_ist.hour < EARLIEST_PUBLISH_HOUR_IST:
         return BhavFetch(
             outcome="too_early",
             trade_date=trade_date,
@@ -309,36 +268,58 @@ def fetch_bhav(
                 log.info("Not published yet — waiting %ds before retry.", wait_secs)
                 time.sleep(wait_secs)
 
-        # Still nothing. Three possibilities: NSE is late, it's a holiday, or
-        # we are being refused. Never guess "holiday" for *today* while NSE
-        # might still be publishing — an early run would stamp a real trading
-        # day as a holiday, and anything reading market_calendar would believe
-        # it. Past dates skip this: their file has had all evening to appear.
-        if is_today and now_ist.hour < HOLIDAY_VERDICT_HOUR_IST:
-            return BhavFetch(
-                outcome="not_published",
-                trade_date=trade_date,
-                reason=(f"not published yet at {now_ist:%H:%M} IST; too early to "
-                        f"call it a holiday (verdict waits until "
-                        f"{HOLIDAY_VERDICT_HOUR_IST}:00 IST)"),
-            )
-
-        log.info("File absent after %d attempts — running canary probe.", attempts)
-        canary = _canary_reachable(client, trade_date)
-
-    if canary is None:
-        raise BhavBlocked(
-            f"No bhavcopy for {trade_date}, AND no bhavcopy readable for any of "
-            f"the previous 10 weekdays. The archive CDN is unreachable or "
-            f"blocking this IP — this is NOT a market holiday."
-        )
-
-    log.info("Canary %s is readable — %s is a non-trading day.", canary, trade_date)
     return BhavFetch(
-        outcome="holiday", trade_date=trade_date,
-        reason=f"no bhavcopy published for {trade_date}; "
-               f"canary {canary} readable, so CDN is fine — market holiday",
+        outcome="no_file",
+        trade_date=trade_date,
+        reason=(f"no bhavcopy at the {trade_date} URL after {attempts} attempt(s) "
+                f"— holiday, or NSE has not published yet"),
     )
+
+
+# ─────────────────────────────────────────────────────────────────────
+#  File date
+# ─────────────────────────────────────────────────────────────────────
+
+_DATE_COLS = ("DATE1", "TRADDT", "TIMESTAMP")
+_DATE_FORMATS = ("%d-%b-%Y", "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d-%B-%Y")
+
+
+def _parse_one_date(raw: str) -> datetime.date | None:
+    raw = str(raw).strip()
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def parse_bhav_date(csv_bytes: bytes, source: str = "full") -> datetime.date:
+    """Return the trading date printed INSIDE the bhavcopy.
+
+    This, not the URL we requested, is the date the prices belong to.
+    Raises RuntimeError if there is no date column, it cannot be parsed, or
+    rows disagree — never guess a date for price data.
+    """
+    df = pd.read_csv(io.StringIO(csv_bytes.decode("utf-8", errors="replace")),
+                     dtype=str, nrows=500)
+    df.columns = df.columns.str.strip().str.upper()
+    col = next((c for c in _DATE_COLS if c in df.columns), None)
+    if col is None:
+        raise RuntimeError(
+            f"Bhavcopy has no date column (looked for {_DATE_COLS}). "
+            f"Got: {sorted(df.columns)}"
+        )
+    values = {v.strip() for v in df[col].dropna().astype(str) if v.strip()}
+    if not values:
+        raise RuntimeError(f"Bhavcopy date column {col} is empty")
+    dates = {_parse_one_date(v) for v in values}
+    if None in dates:
+        bad = [v for v in values if _parse_one_date(v) is None][:3]
+        raise RuntimeError(f"Could not parse bhavcopy date(s) {bad} in column {col}")
+    if len(dates) != 1:
+        raise RuntimeError(f"Bhavcopy contains more than one date: {sorted(dates)}")
+    return dates.pop()
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -406,24 +387,18 @@ def normalise_bhav(
     for col in df.columns:
         df[col] = df[col].astype("string").str.strip()
 
-    # ── Validate the in-file date. A silent off-by-one here corrupts every
-    #    indicator that reads price history, so this is fatal, not a warning.
+    # ── Safety net: the caller passes the file's own date (parse_bhav_date),
+    #    so this should always match. A mismatch means a caller bug — fatal.
     if "TIMESTAMP" in df.columns:
         sample = df["TIMESTAMP"].dropna()
         if not sample.empty:
-            raw = sample.iloc[0]
-            parsed = None
-            for kwargs in ({"dayfirst": True}, {"format": "%Y-%m-%d"}):
-                try:
-                    parsed = pd.to_datetime(raw, **kwargs).date()
-                    break
-                except Exception:
-                    continue
+            parsed = _parse_one_date(sample.iloc[0])
             if parsed is None:
-                log.warning("Could not parse in-file date %r — skipping validation", raw)
+                log.warning("Could not parse in-file date %r — skipping validation",
+                            sample.iloc[0])
             elif parsed != trade_date:
                 raise RuntimeError(
-                    f"Date mismatch: file says {parsed}, we asked for {trade_date}. "
+                    f"Date mismatch: file says {parsed}, caller asked for {trade_date}. "
                     f"Aborting to prevent writing a day's prices under the wrong date."
                 )
 
@@ -497,7 +472,10 @@ if __name__ == "__main__":
             fh.write(res.csv_bytes)
         print(f"raw CSV written to {args.save}")
 
-    clean = normalise_bhav(res.csv_bytes, d, res.source)
-    print(f"OK  {d}  source={res.source}  liquid EQ/BE rows={len(clean)}")
+    file_date = parse_bhav_date(res.csv_bytes, res.source)
+    if file_date != d:
+        print(f"NOTE  requested {d} but the file is dated {file_date}")
+    clean = normalise_bhav(res.csv_bytes, file_date, res.source)
+    print(f"OK  {file_date}  source={res.source}  liquid EQ/BE rows={len(clean)}")
     print(clean[["SYMBOL", "OPEN", "HIGH", "LOW", "CLOSE", "TOTALTRADES"]].head(10)
           .to_string(index=False))

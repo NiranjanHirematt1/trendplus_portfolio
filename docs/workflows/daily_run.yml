@@ -10,17 +10,15 @@ name: Daily Engine Run
 # delayed 20-40 minutes and are the first to be dropped under load. An odd
 # minute gets picked up far closer to on time.
 #
-# Every run does the same thing:
-#   1. latest = newest 'done' date in Supabase
-#   2. download today's bhavcopy and read the date INSIDE the file
-#   3. file date > latest → load + compute under the file's date
-#      otherwise (holiday, stale file, already loaded) → exit 0, write nothing
-# On a holiday NSE may serve the previous session's file under today's URL,
-# so the file's own date is the only thing trusted. The 18:17 / 19:17 runs
-# are automatic retries if NSE was late, and instant no-ops once loaded.
+# There is no "run only if the previous one failed" in cron, and none is needed:
+# run_engine_cli.py checks market_calendar first and exits in seconds if the
+# date is already done. So 18:17 and 19:17 are automatic retries when the 17:17
+# run found nothing, and near-instant no-ops when it succeeded.
 #
-# No catch-up sweep. To load a day that was missed, run this workflow
-# manually with trade_date=YYYY-MM-DD.
+# CATCHUP_DAYS=5 makes every run also repair any of the previous four weekdays
+# that are neither loaded nor a known holiday. Already-settled days cost one
+# quick query each, so this is close to free — and it means a missed evening
+# fixes itself tomorrow without you touching anything.
 # ─────────────────────────────────────────────────────────────────────
 
 on:
@@ -31,7 +29,7 @@ on:
   workflow_dispatch:
     inputs:
       trade_date:
-        description: 'Backfill one date YYYY-MM-DD (blank = normal daily run)'
+        description: 'Override date YYYY-MM-DD (blank = today IST)'
         required: false
         default: ''
       force:
@@ -75,6 +73,7 @@ jobs:
           FORCE_RUN:     ${{ inputs.force && '1' || '' }}
           NSE_ATTEMPTS:  '4'
           NSE_WAIT_SECS: '90'
+          CATCHUP_DAYS:  '5'
         run: python scripts/run_engine_cli.py
 
       # Safety net only. run_engine_cli.py already records its own errors in
@@ -117,6 +116,8 @@ jobs:
                           error_message = coalesce(
                               nullif(market_calendar.error_message, ''),
                               excluded.error_message)
+                      where market_calendar.engine_status is distinct from 'done'
+                         or coalesce(market_calendar.symbol_count, 0) = 0
                       """,
                       day, f"GitHub Actions job failed — {run_url}",
                   )

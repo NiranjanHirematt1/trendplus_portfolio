@@ -103,7 +103,10 @@ HISTORY_DAYS = W52_DAYS + 50   # 302
 
 _BATCH = 500
 
-from app.core.sector_mapping import normalize_sector_name
+from app.core.sector_mapping import (
+    normalize_sector_name,
+    normalize_cap_category,
+)
 
 # ════════════════════════════════════════════════════════════════════
 #  MACD
@@ -538,7 +541,7 @@ async def run_engine(
         sym_rows = [
             (str(r["Symbol"]), str(r.get("Company Name", r["Symbol"])),
              str(r.get("ISIN", "")), str(r.get("Sector", "")),
-             str(r.get("CapCategory", "")))
+             normalize_cap_category(r.get("CapCategory")))
             for _, r in result.iterrows()
         ]
         await conn.executemany(

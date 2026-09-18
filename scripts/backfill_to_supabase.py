@@ -54,7 +54,10 @@ for candidate in (ROOT, ROOT / "backend"):
     if c not in sys.path:
         sys.path.insert(0, c)
 
-from backend.app.core.sector_mapping import normalize_sector_name
+from backend.app.core.sector_mapping import (
+    normalize_sector_name,
+    normalize_cap_category,
+)
 
 # ─────────────────────────────────────────────────────────────────────
 #  CONFIGURATION — set these three paths before running
@@ -268,7 +271,6 @@ async def upsert_symbols(conn, isin_map: pd.Series,
             sector_df = s.set_index("SYMBOL")
         log.info("Sector master loaded: %d symbols", len(sector_df))
 
-    VALID_CAP = {"Large Cap", "Mid Cap", "Small Cap"}
 
     def _clean(val, fallback="") -> str:
         """Coerce any value to str, turning NaN/None/'nan' into fallback."""
@@ -299,9 +301,8 @@ async def upsert_symbols(conn, isin_map: pd.Series,
                     cap = _clean(sector_df.at[sym, col])
                     break
 
-        # Enforce DB check constraint — only these three values or empty string
-        if cap not in VALID_CAP:
-            cap = ""
+        # Enforce the DB check constraint (shared with every other writer)
+        cap = normalize_cap_category(cap)
 
         sym_rows.append((sym, company, isin, sector, cap))
 

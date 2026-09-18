@@ -36,3 +36,26 @@ SECTOR_NORMALIZATION_MAP = {
 def normalize_sector_name(sector: str) -> str:
     sec = str(sector or "").strip()
     return SECTOR_NORMALIZATION_MAP.get(sec, sec)
+
+
+# ── Cap category ────────────────────────────────────────────────────
+# symbols.cap_category carries a CHECK constraint allowing only these three
+# values or the empty string. Anything else aborts the whole symbols upsert,
+# which takes the nightly run down with it — so every writer must go through
+# this. refresh_master_data.py used to emit "Other" for Nifty500 members that
+# are in none of the three cap indices, and that is exactly how this broke.
+VALID_CAP_CATEGORIES = ("Large Cap", "Mid Cap", "Small Cap")
+
+
+def normalize_cap_category(cap) -> str:
+    """Coerce any cap value to something symbols.cap_category will accept.
+
+    Unknown / unclassified returns "" rather than guessing a band — the
+    frontend renders no badge for "", which is the honest signal.
+    """
+    if cap is None:
+        return ""
+    c = str(cap).strip()
+    if c.lower() in ("nan", "none", "null"):
+        return ""
+    return c if c in VALID_CAP_CATEGORIES else ""

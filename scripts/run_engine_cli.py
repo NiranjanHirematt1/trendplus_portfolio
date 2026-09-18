@@ -8,20 +8,27 @@ The whole daily job, unattended. Replaces the manual routine of
                       → python scripts/compute_today.py
 
 Steps
-  1. Skip fast if this trade date is already 'done' (unless FORCE_RUN=1)
-  2. Fetch the bhavcopy from NSE's static archive CDN   (scripts/nse_bhav.py)
-  3. Upsert it into price_history — same filters as backfill_to_supabase.py
-  4. Run compute_today's compute_and_upsert_today
-  5. Cup & Handle scan (non-fatal)
+  1. latest = newest 'done' date in Supabase (v_latest_date)
+  2. Download the bhavcopy published under today's URL      (scripts/nse_bhav.py)
+  3. Read the date printed INSIDE the file (DATE1)
+  4. file date <= latest  → nothing new (holiday / stale / already loaded) → exit 0
+     file date >  latest  → upsert price_history, compute_today, Cup & Handle
+                            — all stored under the FILE's date
+
+Why the file's date: on some holidays NSE serves the previous session's file
+under today's URL (14-Sep-2026 returned 11-Sep data). Comparing the file's own
+date with the database means holidays need no special handling at all, and a
+day's prices can never be written under the wrong date.
+
+There is no catch-up sweep. A day NSE never published by the last run is
+recovered manually: run the workflow with trade_date=YYYY-MM-DD.
 
 Any real failure writes engine_status='error' with the actual message into
-market_calendar and exits non-zero, so GitHub emails you. Only a genuine
-market holiday exits 0 — and "holiday" is proven by a canary fetch, never
-assumed from a failed download. See scripts/nse_bhav.py for that reasoning.
+market_calendar and exits non-zero, so GitHub emails you.
 
 Environment
   DATABASE_URL   Supabase PostgreSQL connection string   (required)
-  TRADE_DATE     YYYY-MM-DD override                     (optional)
+  TRADE_DATE     YYYY-MM-DD manual backfill of one date  (optional)
   FORCE_RUN      1 = recompute even if already 'done'    (optional)
   NSE_ATTEMPTS   download attempts, default 4            (optional)
   NSE_WAIT_SECS  seconds between attempts, default 90    (optional)
@@ -54,6 +61,7 @@ from nse_bhav import (
     fetch_bhav,
     ist_today,
     normalise_bhav,
+    parse_bhav_date,
 )
 
 logging.basicConfig(
@@ -96,38 +104,9 @@ async def already_done(conn, trade_date: datetime.date) -> bool:
     return bool(row and row["engine_status"] == "done" and (row["symbol_count"] or 0) > 0)
 
 
-async def already_settled(conn, trade_date: datetime.date) -> bool:
-    """True if this date needs no further work — loaded, or a known holiday.
-
-    Used for the trailing dates of a catch-up sweep so we don't re-probe NSE
-    for every past holiday on every run. The primary target date deliberately
-    uses the stricter already_done(), so a day wrongly stamped 'skipped' still
-    gets another chance that evening.
-    """
-    row = await conn.fetchrow(
-        "select engine_status, symbol_count from market_calendar where trade_date = $1",
-        trade_date,
-    )
-    if not row:
-        return False
-    if row["engine_status"] == "skipped":
-        return True
-    return row["engine_status"] == "done" and (row["symbol_count"] or 0) > 0
-
-
-async def mark_holiday(conn, trade_date: datetime.date, reason: str) -> None:
-    await conn.execute(
-        """
-        insert into market_calendar
-            (trade_date, is_trading_day, bhav_downloaded, engine_status, error_message)
-        values ($1, false, false, 'skipped', $2)
-        on conflict (trade_date) do update set
-            is_trading_day = false,
-            engine_status  = 'skipped',
-            error_message  = excluded.error_message
-        """,
-        trade_date, reason[:1000],
-    )
+async def latest_done_date(conn) -> datetime.date | None:
+    """Newest fully computed trading day — the same view the website reads."""
+    return await conn.fetchval("select trade_date from v_latest_date")
 
 
 async def mark_error(trade_date: datetime.date, message: str) -> None:
@@ -324,44 +303,18 @@ async def run_compute_today(pool, trade_date: datetime.date) -> dict:
 #  MAIN
 # ════════════════════════════════════════════════════════════════════
 
-async def process_date(pool, trade_date: datetime.date, force: bool,
-                       attempts: int, wait: int, is_target: bool = True) -> str:
-    """Run the full pipeline for one date. Returns 'done' | 'skipped' |
-    'holiday' | 'too_early'. Raises on real failure."""
-    # ── Idempotency ──────────────────────────────────────────────────
-    async with pool.acquire() as conn:
-        settled = (await already_done(conn, trade_date) if is_target
-                   else await already_settled(conn, trade_date))
-        if not force and settled:
-            logger.info("%s needs no work — skipping. "
-                        "Use --force to recompute.", trade_date)
-            return "skipped"
-
-    # ── Fetch ────────────────────────────────────────────────────────
-    res = fetch_bhav(trade_date, attempts=attempts, wait_secs=wait)
-
-    # Neither of these is a verdict — write nothing, let a later run decide.
-    if res.outcome in ("too_early", "not_published"):
-        logger.info("No data yet for %s: %s", trade_date, res.reason)
-        return res.outcome
-
-    if res.outcome == "holiday":
-        logger.info("Market holiday: %s", res.reason)
-        async with pool.acquire() as conn:
-            await mark_holiday(conn, trade_date, res.reason)
-        return "holiday"
-
+async def load_and_compute(pool, trade_date: datetime.date,
+                           csv_bytes: bytes, source: str) -> None:
+    """Upsert one day of prices and run every computation for it."""
     t0 = time.monotonic()
 
-    # ── Parse + load ─────────────────────────────────────────────────
-    df = normalise_bhav(res.csv_bytes, trade_date, res.source)
+    df = normalise_bhav(csv_bytes, trade_date, source)
     logger.info("Bhavcopy ready: %d liquid EQ/BE rows (TOTALTRADES >= %d)",
                 len(df), MIN_TOTAL_TRADES)
 
     async with pool.acquire() as conn:
         await upload_bhav_to_supabase(conn, df, trade_date)
 
-    # ── Compute ──────────────────────────────────────────────────────
     summary = await run_compute_today(pool, trade_date)
 
     # ── Cup & Handle (non-fatal) ─────────────────────────────────────
@@ -375,69 +328,76 @@ async def process_date(pool, trade_date: datetime.date, force: bool,
     logger.info("  DONE  |  %s  |  %d symbols  |  %.1fs",
                 trade_date, summary["symbols"], time.monotonic() - t0)
     logger.info("=" * 58)
-    return "done"
 
 
-def _weekdays_back(end: datetime.date, n: int) -> list[datetime.date]:
-    """The n most recent weekdays ending at `end`, oldest first."""
-    out, d = [], end
-    while len(out) < n:
-        if d.weekday() < 5:
-            out.append(d)
-        d -= datetime.timedelta(days=1)
-    return list(reversed(out))
+async def run(requested: datetime.date, manual: bool, force: bool) -> str:
+    """Returns a short outcome word for the log. Raises on real failure.
 
-
-async def run(target: datetime.date, force: bool, catchup: int) -> None:
+    Scheduled (manual=False): load the file only if its date is NEWER than
+      the latest 'done' date in Supabase. Same or older → exit, no writes.
+    Manual (TRADE_DATE set): backfill exactly that date. The file must carry
+      that date (else it was a holiday); skipped if already done unless force.
+    """
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL is not set")
-
-    dates = _weekdays_back(target, catchup) if catchup > 1 else [target]
-
-    logger.info("=" * 58)
-    logger.info("  TrendPulse — Daily Engine Run  |  %s  (IST)",
-                ", ".join(str(d) for d in dates))
-    logger.info("=" * 58)
 
     pool = await asyncpg.create_pool(
         DATABASE_URL, min_size=1, max_size=5, command_timeout=300,
         max_inactive_connection_lifetime=60,
         server_settings={"statement_timeout": "0"},
     )
-
-    attempts = int(os.environ.get("NSE_ATTEMPTS", "4"))
-    wait     = int(os.environ.get("NSE_WAIT_SECS", "90"))
-    # Older dates in a catch-up sweep either exist or don't — no point waiting.
-    catch_attempts, catch_wait = 1, 0
-
     try:
-        results: dict[datetime.date, str] = {}
-        failures: list[str] = []
-        for d in dates:
-            is_target = d == dates[-1]
-            try:
-                results[d] = await process_date(
-                    pool, d, force,
-                    attempts if is_target else catch_attempts,
-                    wait if is_target else catch_wait,
-                    is_target=is_target,
-                )
-            except BhavBlocked:
-                raise            # nothing else will work either — stop now
-            except Exception as e:
-                # One bad older day must not stop today's data from loading.
-                if is_target:
-                    raise
-                logger.exception("Catch-up for %s failed: %s", d, e)
-                results[d] = "failed"
-                failures.append(f"{d}: {type(e).__name__}: {e}")
-                await mark_error(d, f"{type(e).__name__}: {e}")
+        async with pool.acquire() as conn:
+            latest = await latest_done_date(conn)
 
-        if len(dates) > 1:
-            logger.info("Catch-up summary: %s",
-                        "  ".join(f"{d}={v}" for d, v in results.items()))
-        if failures:
-            raise RuntimeError("catch-up failures — " + " | ".join(failures))
+        logger.info("=" * 58)
+        logger.info("  TrendPulse — Daily Engine Run  |  requested %s  |  latest in DB %s%s",
+                    requested, latest, "  |  MANUAL" if manual else "")
+        logger.info("=" * 58)
+
+        # ── Cheap exit: today is already loaded (the 18:17 / 19:17 runs) ──
+        if not manual and not force and latest is not None and latest >= requested:
+            logger.info("Latest date in DB (%s) is already %s — nothing to do.",
+                        latest, requested)
+            return "up_to_date"
+
+        if manual and not force:
+            async with pool.acquire() as conn:
+                if await already_done(conn, requested):
+                    logger.info("%s is already done — skipping (use force to recompute).",
+                                requested)
+                    return "up_to_date"
+
+        # ── Download ─────────────────────────────────────────────────
+        res = fetch_bhav(requested,
+                         attempts=int(os.environ.get("NSE_ATTEMPTS", "4")),
+                         wait_secs=int(os.environ.get("NSE_WAIT_SECS", "90")))
+        if res.outcome != "ok":
+            logger.info("No file for %s: %s — exiting, nothing written.",
+                        requested, res.reason)
+            return res.outcome
+
+        # ── The file's own date decides everything ───────────────────
+        file_date = parse_bhav_date(res.csv_bytes, res.source)
+        logger.info("Requested %s  →  file is dated %s", requested, file_date)
+
+        if manual:
+            if file_date != requested:
+                logger.info("NSE served %s data for %s — %s was not a trading day. "
+                            "Nothing written.", file_date, requested, requested)
+                return "not_trading_day"
+        else:
+            if latest is not None and file_date <= latest:
+                logger.info("File date %s is not newer than latest %s "
+                            "(holiday / stale file / already loaded) — "
+                            "no update, no compute.", file_date, latest)
+                return "no_new_data"
+            if file_date > requested:
+                raise RuntimeError(f"File is dated {file_date}, which is after the "
+                                   f"requested {requested} — refusing to load.")
+
+        await load_and_compute(pool, file_date, res.csv_bytes, res.source)
+        return "done"
     finally:
         await pool.close()
 
@@ -447,33 +407,29 @@ def main() -> int:
 
     ap = argparse.ArgumentParser(description="TrendPulse daily engine run")
     ap.add_argument("--date", default=os.environ.get("TRADE_DATE", "").strip(),
-                    help="YYYY-MM-DD (default: today in IST)")
+                    help="YYYY-MM-DD manual backfill (default: today in IST, scheduled mode)")
     ap.add_argument("--force", action="store_true",
                     default=os.environ.get("FORCE_RUN", "").strip()
                             in ("1", "true", "yes"),
                     help="recompute even if the date is already 'done'")
-    ap.add_argument("--catchup", type=int,
-                    default=int(os.environ.get("CATCHUP_DAYS", "1") or 1),
-                    help="also process the N-1 preceding weekdays that are "
-                         "not yet done (default 1 = today only)")
     args = ap.parse_args()
 
-    today = datetime.date.fromisoformat(args.date) if args.date else ist_today()
+    manual = bool(args.date)
+    requested = datetime.date.fromisoformat(args.date) if manual else ist_today()
 
     try:
-        asyncio.run(run(today, args.force, max(1, args.catchup)))
+        outcome = asyncio.run(run(requested, manual, args.force))
+        logger.info("Outcome: %s", outcome)
         return 0
     except BhavBlocked as e:
-        # The one failure mode the old script hid. Loud on purpose.
         logger.error("BHAVCOPY DOWNLOAD BLOCKED — %s", e)
-        logger.error("This is NOT a holiday. Data for %s was NOT loaded.", today)
-        logger.error("Recover by running this script with TRADE_DATE=%s from a "
-                     "machine on a normal ISP connection.", today)
-        asyncio.run(mark_error(today, f"bhav download blocked: {e}"))
+        logger.error("Data for %s was NOT loaded. Re-run the workflow later, or with "
+                     "trade_date=%s once NSE is reachable.", requested, requested)
+        asyncio.run(mark_error(requested, f"bhav download blocked: {e}"))
         return 2
     except Exception as e:
         logger.exception("Daily run failed: %s", e)
-        asyncio.run(mark_error(today, f"{type(e).__name__}: {e}"))
+        asyncio.run(mark_error(requested, f"{type(e).__name__}: {e}"))
         return 1
 
 

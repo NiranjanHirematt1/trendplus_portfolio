@@ -202,7 +202,10 @@ async def download_sector_master() -> tuple[str, int]:
 
     rows: dict[str, dict] = {}
 
-    # Nifty500 first — gives sector for all 500, cap = "Other" initially
+    # Nifty500 first — gives sector for all 500. Cap starts EMPTY, not "Other":
+    # symbols.cap_category only accepts Large/Mid/Small Cap or "", so "Other"
+    # violates the CHECK constraint and kills the nightly symbols upsert.
+    # The ~150 Nifty500 names in none of the three cap indices stay "" = unknown.
     n500 = parsed.get("Nifty500", pd.DataFrame())
     if not n500.empty:
         sym_col = _col(n500, ["SYMBOL", "TICKER"])
@@ -211,7 +214,7 @@ async def download_sector_master() -> tuple[str, int]:
             sym = str(r.get(sym_col, "")).strip().upper() if sym_col else ""
             sec = str(r.get(sec_col, "")).strip()         if sec_col else ""
             if sym and sym != "NAN":
-                rows[sym] = {"SYMBOL": sym, "SECTOR": sec, "CAP_CATEGORY": "Other"}
+                rows[sym] = {"SYMBOL": sym, "SECTOR": sec, "CAP_CATEGORY": ""}
         logger.info("Nifty500 base: %d symbols", len(rows))
 
     # Assign cap — higher priority overwrites
