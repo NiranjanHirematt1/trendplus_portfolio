@@ -64,13 +64,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
 
-      - name: Debug trigger
-        run: |
-          echo "Event: ${{ github.event_name }}"
-          echo "Schedule: ${{ github.event.schedule }}"
-          echo "UTC now: $(date -u)"
-          echo "IST now: $(TZ=Asia/Kolkata date)"
-
       - name: Run engine
         env:
           DATABASE_URL:  ${{ secrets.DATABASE_URL }}
