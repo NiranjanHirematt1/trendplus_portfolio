@@ -238,12 +238,12 @@ def fetch_bhav(
     """
     manual_trade_date = os.environ.get("TRADE_DATE", "").strip()
 
-   if _is_weekend(trade_date) and not manual_trade_date:
-       return BhavFetch(
-            outcome="no_file",
-            trade_date=trade_date,
-            reason=f"{trade_date} is a {trade_date:%A} — market closed",
-        )
+    if _is_weekend(trade_date) and not manual_trade_date:
+        return BhavFetch(
+             outcome="no_file",
+             trade_date=trade_date,
+             reason=f"{trade_date} is a {trade_date:%A} — market closed",
+         )
 
     now_ist = datetime.datetime.now(IST)
     if trade_date == now_ist.date() and now_ist.hour < EARLIEST_PUBLISH_HOUR_IST:
