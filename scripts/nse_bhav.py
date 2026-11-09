@@ -236,8 +236,10 @@ def fetch_bhav(
               | "too_early" (today, before NSE can have published).
     Raises BhavBlocked if NSE is refusing us — the caller must fail the job.
     """
-    if _is_weekend(trade_date):
-        return BhavFetch(
+    manual_trade_date = os.environ.get("TRADE_DATE", "").strip()
+
+   if _is_weekend(trade_date) and not manual_trade_date:
+       return BhavFetch(
             outcome="no_file",
             trade_date=trade_date,
             reason=f"{trade_date} is a {trade_date:%A} — market closed",
